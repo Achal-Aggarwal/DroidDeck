@@ -121,6 +121,11 @@ static constexpr size_t FAKE_INPUT_RING_HEADER_SIZE =
 static constexpr size_t FAKE_INPUT_RING_SIZE =
     FAKE_INPUT_RING_HEADER_SIZE +
     (FAKE_INPUT_RING_CAPACITY * FAKE_INPUT_EVENT_SIZE);
+static constexpr size_t FAKE_INPUT_RING_PAD_TYPE_OFFSET = 44;
+static constexpr uint32_t PAD_TYPE_DECK = 0, PAD_TYPE_STEAM = 1, PAD_TYPE_XBOX = 2, PAD_TYPE_DS4 = 3,
+                          PAD_TYPE_DUALSENSE = 4, PAD_TYPE_LAST = PAD_TYPE_DUALSENSE,
+                          PAD_TYPE_MOUSE = 5;
+static constexpr uint32_t PAD_TYPE_SET = 0x80000000u;
 
 struct UinputDescription {
   uint32_t magic;
@@ -149,6 +154,7 @@ struct FakeController {
   size_t mapping_size = 0;
   bool closed = false;
   bool needs_keyframe = true;
+  bool mouse = false;
 
   ~FakeController() {
     if (ring) munmap(ring, mapping_size);
@@ -651,9 +657,22 @@ open_fake_input_ring(const char *event, int flags) {
   controller->uinput = description;
   controller->mapping_size = mapping_size;
   controller->generation = ring_generation(ring);
+  if (!virtual_pad) {
+    uint32_t pad_type = __atomic_load_n(
+        reinterpret_cast<volatile uint32_t *>(static_cast<uint8_t *>(mapping) + FAKE_INPUT_RING_SIZE +
+                                              FAKE_INPUT_RING_PAD_TYPE_OFFSET),
+        __ATOMIC_ACQUIRE);
+    controller->mouse = (pad_type & PAD_TYPE_SET) && (pad_type & ~PAD_TYPE_SET) == PAD_TYPE_MOUSE;
+  }
   SnapshotState snap;
-  if (read_snapshot(ring, snap) && snap.generation == controller->generation)
-    capture_keyframe(*controller, snap);
+  if (read_snapshot(ring, snap) && snap.generation == controller->generation) {
+    if (controller->mouse) {
+      controller->read_seq = snap.write_seq;
+      controller->needs_keyframe = false;
+    } else {
+      capture_keyframe(*controller, snap);
+    }
+  }
   {
     std::lock_guard<std::recursive_mutex> guard(controller_mutex());
     controller_map()[fd] = controller;
@@ -1156,7 +1175,8 @@ struct DeckImu {
   uint32_t pad_type;
   uint32_t latency;
 };
-static_assert(offsetof(DeckImu, pad_type) == 44, "DeckImu::pad_type matches FakeInputWriter");
+static_assert(offsetof(DeckImu, pad_type) == FAKE_INPUT_RING_PAD_TYPE_OFFSET,
+                "DeckImu::pad_type matches FakeInputWriter and the ring reader");
 static_assert(offsetof(DeckImu, latency) == 48, "DeckImu::latency matches FakeInputWriter");
 static constexpr uint32_t LATENCY_CONTROLLER = 1, LATENCY_TOUCH = 2;
 static constexpr int LOW_LATENCY_REPORT_INTERVAL_US = 1000;
@@ -1269,10 +1289,6 @@ static bool fake_deck_enabled() {
   if (enabled < 0) enabled = getenv("FAKE_EVDEV_DECK") && atoi(getenv("FAKE_EVDEV_DECK")) ? 1 : 0;
   return enabled == 1;
 }
-
-static constexpr uint32_t PAD_TYPE_DECK = 0, PAD_TYPE_STEAM = 1, PAD_TYPE_XBOX = 2, PAD_TYPE_DS4 = 3,
-                          PAD_TYPE_DUALSENSE = 4, PAD_TYPE_LAST = PAD_TYPE_DUALSENSE;
-static constexpr uint32_t PAD_TYPE_SET = 0x80000000u;
 
 __attribute__((visibility("hidden"))) static uint32_t session_pad_type() {
   static int type = -1;
@@ -3351,6 +3367,87 @@ static int copy_ioctl_bits(int op, void *destination, const unsigned char (&bits
   return static_cast<int>(size);
 }
 
+static constexpr uint16_t MOUSE_VENDOR_ID = 0x1dd1;
+static constexpr uint16_t MOUSE_PRODUCT_ID = 0x0004;
+
+// A ring whose PAD_TYPE header says PAD_TYPE_MOUSE is a relative mouse: reads
+// serve ring events verbatim and every capability query reports mouse bits.
+static int ioctl_mouse(int op, void *argp) {
+  int type = (op >> 8 & 0xFF);
+  int number = (op >> 0 & 0xFF);
+  if (type != 0x45) {
+    errno = EINVAL;
+    return -1;
+  }
+  switch (number) {
+    case 0x01: {  // EVIOCGVERSION
+      int version = 65536;
+      memcpy(argp, &version, sizeof(int));
+      return 0;
+    }
+    case 0x02: {  // EVIOCGID
+      struct input_id id;
+      memset(&id, 0, sizeof(id));
+      id.bustype = 0x03;
+      id.vendor = MOUSE_VENDOR_ID;
+      id.product = MOUSE_PRODUCT_ID;
+      id.version = 1;
+      memcpy(argp, &id, sizeof(id));
+      return 0;
+    }
+    case 0x06:  // EVIOCGNAME
+      if (argp && _IOC_SIZE(op)) snprintf(static_cast<char *>(argp), _IOC_SIZE(op), "DroidDeck Mouse");
+      return 0;
+    case 0x07:  // EVIOCGPHYS
+      if (argp && _IOC_SIZE(op)) snprintf(static_cast<char *>(argp), _IOC_SIZE(op), "usb-droiddeck/mouse");
+      return 0;
+    case 0x08:  // EVIOCGUNIQ
+      if (argp && _IOC_SIZE(op)) static_cast<char *>(argp)[0] = '\0';
+      return 0;
+    case 0x09: {  // EVIOCGPROP
+      unsigned char bitmask[(INPUT_PROP_MAX + 8) / 8] = {};
+      bitmask[INPUT_PROP_POINTER / 8] |= 1 << (INPUT_PROP_POINTER % 8);
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x18: {  // EVIOCGKEY: everything released (no keyframe replay)
+      unsigned char bitmask[(KEY_MAX + 8) / 8] = {};
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x20: {  // EVIOCGBIT(0)
+      unsigned char bitmask[(EV_MAX + 8) / 8] = {};
+      bitmask[EV_SYN / 8] |= 1 << (EV_SYN % 8);
+      bitmask[EV_KEY / 8] |= 1 << (EV_KEY % 8);
+      bitmask[EV_REL / 8] |= 1 << (EV_REL % 8);
+      bitmask[EV_MSC / 8] |= 1 << (EV_MSC % 8);
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x21: {  // EVIOCGBIT(EV_KEY)
+      unsigned char bitmask[(KEY_MAX + 8) / 8] = {};
+      for (int button = BTN_LEFT; button <= BTN_TASK; button++)
+        if (button <= BTN_MIDDLE || button == BTN_SIDE || button == BTN_EXTRA)
+          bitmask[button / 8] |= 1 << (button % 8);
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x22: {  // EVIOCGBIT(EV_REL)
+      unsigned char bitmask[(REL_MAX + 8) / 8] = {};
+      for (uint16_t code : {REL_X, REL_Y, REL_WHEEL, REL_HWHEEL, REL_WHEEL_HI_RES, REL_HWHEEL_HI_RES})
+        bitmask[code / 8] |= 1 << (code % 8);
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x23: {  // EVIOCGBIT(EV_ABS)
+      unsigned char bitmask[(ABS_MAX + 8) / 8] = {};
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    case 0x35: {  // EVIOCGBIT(EV_FF)
+      unsigned char bitmask[(FF_MAX + 8) / 8] = {};
+      return copy_ioctl_bits(op, argp, bitmask);
+    }
+    default:
+      errno = EINVAL;
+      return -1;
+  }
+}
+
 static bool wait_snapshot(std::shared_ptr<FakeController> fake,
                           std::unique_lock<std::recursive_mutex> &guard,
                           SnapshotState &snap) {
@@ -3416,6 +3513,13 @@ EXPORT int ioctl(int fd, ioctl_request_t op, ...) {
   const char *event = controller->second->event ? controller->second->event : "event0";
   int event_number = controller->second->slot;
   const UinputDescription *made = controller->second->uinput;
+
+  if (controller->second->mouse) {
+    int result = ioctl_mouse(op, argp);
+    if (result >= 0) return result;
+    guard.unlock();
+    return forward_ioctl(fd, op, argp);
+  }
 
   if (type == 0x45 && number == 0x1) {
     Logger::log("Hooking ioctl EVIOCGVERSION for event %s\n", event);
@@ -3680,6 +3784,14 @@ static ssize_t read_input(int fd, void *buf, size_t count) {
         if (fake.needs_keyframe || snap.resync_seq != fake.resync_seq ||
             snap.write_seq < fake.read_seq ||
             snap.write_seq - fake.read_seq > FAKE_INPUT_RING_CAPACITY) {
+          if (fake.mouse) {
+            // A mouse has no neutral-event keyframe; recovery is to drop the
+            // missed deltas and resume at the writer's position.
+            fake.read_seq = snap.write_seq;
+            fake.resync_seq = snap.resync_seq;
+            fake.needs_keyframe = false;
+            continue;
+          }
           capture_keyframe(fake, snap);
         } else {
           size_t events = std::min<uint64_t>(requested, snap.write_seq - fake.read_seq);
