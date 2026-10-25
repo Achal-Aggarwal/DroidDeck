@@ -258,6 +258,8 @@ class DrawerActions(
     val onLowLatencyTouch: (Boolean) -> Unit = {},
     val evdevMouse: Boolean = false,
     val onEvdevMouse: (Boolean) -> Unit = {},
+    val directCursor: Boolean = true,
+    val onDirectCursor: (Boolean) -> Unit = {},
     val onTouch: (String) -> Unit,
     val onGestureSettings: () -> Unit = {},
     val onFexPreset: (String) -> Unit,
@@ -548,6 +550,10 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                 ChoiceRow(host, "touch", stringResource(R.string.mode_touch), null,
                                     listOf(SessionPrefs.TOUCH_AUTO to stringResource(R.string.drawer_touch_auto, a.touchAuto), SessionPrefs.TOUCH_PAD to stringResource(R.string.mode_touch_touchpad), SessionPrefs.TOUCH_DIRECT to stringResource(R.string.mode_touch_direct), SessionPrefs.TOUCH_GESTURES to stringResource(R.string.mode_touch_gestures), SessionPrefs.TOUCH_OFF to stringResource(R.string.widgets_off)),
                                     a.touchMode, chipModifier = focus.track(page, "touch"), onPick = a.onTouch)
+                                if (a.touchMode == SessionPrefs.TOUCH_DIRECT || a.touchMode == SessionPrefs.TOUCH_AUTO)
+                                    ToggleRow(host, "direct-cursor", stringResource(R.string.drawer_direct_cursor),
+                                        stringResource(R.string.drawer_direct_cursor_hint), a.directCursor,
+                                        chipModifier = focus.track(page, "direct-cursor"), onChange = a.onDirectCursor)
                                 ActionRow(stringResource(R.string.gesture_settings), stringResource(R.string.gesture_settings_hint),
                                     stringResource(R.string.ctrl_edit), a.onGestureSettings,
                                     modifier = focus.track(page, "gesture-settings"))

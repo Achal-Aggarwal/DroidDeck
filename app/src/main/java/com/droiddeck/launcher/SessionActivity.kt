@@ -329,6 +329,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var lowLatencyController by mutableStateOf(false)
     private var lowLatencyTouch by mutableStateOf(false)
     private var evdevMouseOn by mutableStateOf(false)
+    private var directCursorOn by mutableStateOf(true)
     private var mouseWriter: com.droiddeck.launcher.input.FakeInputWriter? = null
     private var evdevMouseActive = false
     private var padType by mutableStateOf(SessionPrefs.CONTROLLER_DECK)
@@ -939,6 +940,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                         evdevMouseOn = on
                         if (on) { if (pointerLocked) openEvdevMouse() } else closeEvdevMouse()
                     },
+                    directCursor = directCursorOn,
+                    onDirectCursor = { on ->
+                        SessionPrefs.setDirectCursor(this@SessionActivity, on)
+                        directCursorOn = on
+                        if (!on && directTouchCursorHidden()) cursorVisible = false
+                    },
                     onOsc = { v ->
                         SessionPrefs.setOscMode(this@SessionActivity, v)
                         readPrefs()
@@ -1529,6 +1536,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         lowLatencyTouch = SessionPrefs.lowLatencyTouch(this)
         evdevMouseOn = SessionPrefs.evdevMouse(this)
         if (!evdevMouseOn) closeEvdevMouse()
+        directCursorOn = SessionPrefs.directCursor(this)
         padType = SessionPrefs.steamController(this)
     }
 
@@ -2408,11 +2416,18 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         uiHandler.removeCallbacks(cursorResync)
         uiHandler.postDelayed(cursorResync, 60)
         if (clientHidesCursor) { cursorVisible = false; return }
+        if (directTouchCursorHidden()) { cursorVisible = false; return }
         if (android.os.SystemClock.uptimeMillis() - lastPadInputMs < CURSOR_PAD_HOLD_MS) return
         cursorVisible = true
         uiHandler.removeCallbacks(cursorHide)
         if (SessionState.mode == SessionService.MODE_STEAM && SessionState.steamUi != "desktop") uiHandler.postDelayed(cursorHide, 2500)
     }
+
+    // Native-touch games find a floating pointer useless; direct mode can hide
+    // the host overlay entirely, while pointer-fallback games keep it.
+    private fun directTouchCursorHidden(): Boolean =
+        !directCursorOn && (routedTouchMode == SessionPrefs.TOUCH_DIRECT ||
+            (routedTouchMode == SessionPrefs.TOUCH_AUTO && !usingTouchpad()))
 
     private fun syncClientCursor(): Boolean {
         if (!CompositorHost.isStarted) return false
@@ -2642,6 +2657,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
         if (next == SessionPrefs.TOUCH_OFF) cursorVisible = false
         routedTouchMode = next
+        if (directTouchCursorHidden()) cursorVisible = false
     }
 
     private fun deliversTouches(mode: String) =

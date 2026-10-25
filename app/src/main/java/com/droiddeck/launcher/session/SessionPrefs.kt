@@ -223,6 +223,12 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("evdevMouse", on).apply()
     }
 
+    fun directCursor(context: Context): Boolean = prefs(context).getBoolean("directCursor", true)
+
+    fun setDirectCursor(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean("directCursor", on).apply()
+    }
+
     fun backActionsInverted(context: Context): Boolean = prefs(context).getBoolean("backActionsInverted", false)
 
     fun setBackActionsInverted(context: Context, inverted: Boolean) {
