@@ -244,28 +244,29 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var cursorHotX by mutableStateOf(0)
     private var cursorHotY by mutableStateOf(0)
     private var cursorImageScale by mutableStateOf(1f)
+    private var cursorResyncIdle = 0
     private val cursorResync = object : Runnable {
         override fun run() {
             if (syncClientCursor() && clientHidesCursor) {
                 cursorVisible = false
                 return
             }
-            alignCursorToGuest()
-            if (cursorVisible) uiHandler.postDelayed(this, 60)
+            cursorResyncIdle = if (alignCursorToGuest()) 0 else cursorResyncIdle + 1
+            if (!cursorVisible || pointerLocked) return
+            if (cursorResyncIdle > CURSOR_RESYNC_IDLE_TICKS) return
+            uiHandler.postDelayed(this, 60)
         }
     }
 
-    // The overlay cursor normally follows this class's own bookkeeping, but the
-    // guest can move the real pointer underneath it (cursor warp, clamp,
-    // relative drift) — re-anchor to the compositor's authoritative position.
-    private fun alignCursorToGuest() {
-        if (pointerLocked || !CompositorHost.isStarted) return
-        if (!WaylandCompositor.nativeCursorInputPos(cursorPosBuf)) return
-        val rect = drawnRect() ?: return
+    private fun alignCursorToGuest(): Boolean {
+        if (pointerLocked || !CompositorHost.isStarted) return false
+        if (!WaylandCompositor.nativeCursorInputPos(cursorPosBuf)) return false
+        val rect = drawnRect() ?: return false
         val x = rect.left + cursorPosBuf[0] / InputSpace.WIDTH.toFloat() * rect.width()
         val y = rect.top + cursorPosBuf[1] / InputSpace.HEIGHT.toFloat() * rect.height()
-        if (kotlin.math.abs(x - cursorPos.x) < 0.75f && kotlin.math.abs(y - cursorPos.y) < 0.75f) return
+        if (kotlin.math.abs(x - cursorPos.x) < 0.75f && kotlin.math.abs(y - cursorPos.y) < 0.75f) return false
         cursorPos = androidx.compose.ui.geometry.Offset(x, y)
+        return true
     }
     private val uiHandler = Handler(Looper.getMainLooper())
     private var pendingBackAction: Runnable? = null
@@ -332,6 +333,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var directCursorOn by mutableStateOf(true)
     private var mouseWriter: com.droiddeck.launcher.input.FakeInputWriter? = null
     private var evdevMouseActive = false
+    private var lastMouseX = Float.NaN
+    private var lastMouseY = Float.NaN
     private var padType by mutableStateOf(SessionPrefs.CONTROLLER_DECK)
     private var pcKeyboardOpen by mutableStateOf(false)
     private var achievementsInFront by mutableStateOf<AchievementsInFront?>(null)
@@ -938,7 +941,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     onEvdevMouse = { on ->
                         SessionPrefs.setEvdevMouse(this@SessionActivity, on)
                         evdevMouseOn = on
-                        if (on) { if (pointerLocked) openEvdevMouse() } else closeEvdevMouse()
+                        if (on) { if (pointerLocked) openEvdevMouse() } else releaseEvdevMouse()
                     },
                     directCursor = directCursorOn,
                     onDirectCursor = { on ->
@@ -1535,7 +1538,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         lowLatencyController = SessionPrefs.lowLatencyController(this)
         lowLatencyTouch = SessionPrefs.lowLatencyTouch(this)
         evdevMouseOn = SessionPrefs.evdevMouse(this)
-        if (!evdevMouseOn) closeEvdevMouse()
+        if (!evdevMouseOn) releaseEvdevMouse()
         directCursorOn = SessionPrefs.directCursor(this)
         padType = SessionPrefs.steamController(this)
     }
@@ -2414,6 +2417,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         cursorPos = androidx.compose.ui.geometry.Offset(x, y)
         syncClientCursor()
         uiHandler.removeCallbacks(cursorResync)
+        cursorResyncIdle = 0
         uiHandler.postDelayed(cursorResync, 60)
         if (clientHidesCursor) { cursorVisible = false; return }
         if (directTouchCursorHidden()) { cursorVisible = false; return }
@@ -2423,8 +2427,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (SessionState.mode == SessionService.MODE_STEAM && SessionState.steamUi != "desktop") uiHandler.postDelayed(cursorHide, 2500)
     }
 
-    // Native-touch games find a floating pointer useless; direct mode can hide
-    // the host overlay entirely, while pointer-fallback games keep it.
     private fun directTouchCursorHidden(): Boolean =
         !directCursorOn && (routedTouchMode == SessionPrefs.TOUCH_DIRECT ||
             (routedTouchMode == SessionPrefs.TOUCH_AUTO && !usingTouchpad()))
@@ -2649,9 +2651,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (::touchpad.isInitialized) touchpad.cancel()
         if (::directTouchHold.isInitialized) directTouchHold.cancel()
         if (::scrollTouch.isInitialized) scrollTouch.cancel()
-        // Only a mode that hands the guest real touch points can leave a touch
-        // stream behind that needs cancelling; AUTO resolves at runtime, so
-        // treat it as delivering.
         if (CompositorHost.isStarted &&
             (deliversTouches(routedTouchMode) || deliversTouches(next)))
             WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
@@ -2675,27 +2674,31 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun sceneScale(rect: android.graphics.RectF): Float =
         SessionState.outputSize.first / rect.width()
 
-    // While a game holds the pointer and the raw mouse channel is on, pointer
-    // input goes to a guest evdev mouse instead of wl_pointer; games that read
-    // raw devices get native relative motion, and the rest see none (off by
-    // default because a non-raw-input game then loses its mouse).
     private fun openEvdevMouse() {
         if (evdevMouseActive || !evdevMouseOn) return
-        val dir = File(LinuxRuntime.sessionRoot(this), "dev/input")
-        val writer = com.droiddeck.launcher.input.FakeInputWriter(
-            dir.absolutePath, com.droiddeck.launcher.input.FakeInputWriter.MOUSE_SLOT)
+        val writer = mouseWriter ?: com.droiddeck.launcher.input.FakeInputWriter(
+            File(LinuxRuntime.sessionRoot(this), "dev/input").absolutePath,
+            com.droiddeck.launcher.input.FakeInputWriter.MOUSE_SLOT,
+        ).also { mouseWriter = it }
         if (!writer.open()) return
-        mouseWriter = writer
         evdevMouseActive = true
+        lastMouseX = Float.NaN
+        lastMouseY = Float.NaN
         Log.i(TAG, "raw mouse channel active (pointer locked)")
     }
 
     private fun closeEvdevMouse() {
         if (!evdevMouseActive) return
-        mouseWriter?.let { it.softRelease(); it.destroy() }
-        mouseWriter = null
+        mouseWriter?.softRelease()
         evdevMouseActive = false
-        Log.i(TAG, "raw mouse channel released")
+        Log.i(TAG, "raw mouse channel idle")
+    }
+
+    private fun releaseEvdevMouse() {
+        evdevMouseActive = false
+        mouseWriter?.destroy()
+        mouseWriter = null
+        Log.i(TAG, "raw mouse channel removed")
     }
 
     private fun sendSceneDelta(dx: Float, dy: Float) {
@@ -2714,6 +2717,18 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         val writer = if (evdevMouseActive) mouseWriter else null
         if (writer != null) writer.writeMouseWheel(steps, 0, 120)
         else WaylandCompositor.nativeSendSceneInput(4, steps, 0)
+    }
+
+    private fun sendMouseDelta(x: Float, y: Float) {
+        cursorVisible = false
+        val previousX = lastMouseX
+        val previousY = lastMouseY
+        lastMouseX = x
+        lastMouseY = y
+        val rect = drawnRect() ?: return
+        if (previousX.isNaN() || previousY.isNaN()) return
+        val scale = sceneScale(rect)
+        sendSceneDelta((x - previousX) * scale, (y - previousY) * scale)
     }
 
     private fun drawnRect(): android.graphics.RectF? {
@@ -2806,9 +2821,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
-                // A client that takes no wl_touch receives touches as pointer
-                // drags; releasing the mouse buttons here would cancel its own
-                // in-progress drag.
                 if (WaylandCompositor.nativeFocusTakesTouch()) {
                     listOf(PointerGestures.BTN_LEFT, PointerGestures.BTN_RIGHT, PointerGestures.BTN_MIDDLE).forEach {
                         WaylandCompositor.nativeSendSceneInput(3, it, 0)
@@ -2828,9 +2840,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun onMouse(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_HOVER_MOVE, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_HOVER_ENTER ->
-                movePointer(event.x, event.y)
+                if (evdevMouseActive) sendMouseDelta(event.x, event.y) else movePointer(event.x, event.y)
             MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> {
-                movePointer(event.x, event.y)
+                if (evdevMouseActive) sendMouseDelta(event.x, event.y) else movePointer(event.x, event.y)
                 val button = when (event.actionButton) {
                     MotionEvent.BUTTON_SECONDARY -> PointerGestures.BTN_RIGHT
                     MotionEvent.BUTTON_TERTIARY -> PointerGestures.BTN_MIDDLE
@@ -3214,6 +3226,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (::touchpad.isInitialized) touchpad.cancel()
         if (::directTouchHold.isInitialized) directTouchHold.cancel()
         uiHandler.removeCallbacks(clearRecognizedGesture)
+        uiHandler.removeCallbacks(cursorResync)
         gestureSettingsOpen = false
         drawerOpen = false
         pcKeyboardOpen = false
@@ -3638,7 +3651,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     override fun onDestroy() {
         steamVrRecovery.close()
         uiHandler.removeCallbacks(steamTouchRetry)
-        closeEvdevMouse()
+        uiHandler.removeCallbacks(cursorResync)
+        releaseEvdevMouse()
         if (runtimeRemovalBlocked) { super.onDestroy(); return }
         watching = false
         releaseDrawerDirection()
@@ -3734,6 +3748,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         private const val FEX_MISSING = "droiddeck-fex: x86 Linux programs need"
         private const val UNBUFFERED_SOURCES = InputDevice.SOURCE_CLASS_JOYSTICK or InputDevice.SOURCE_CLASS_TRACKBALL or InputDevice.SOURCE_CLASS_POSITION
         private const val CURSOR_PAD_HOLD_MS = 1200L
+        private const val CURSOR_RESYNC_IDLE_TICKS = 33
         private const val PAD_MOUSE_CHECK_MS = 500L
         private const val PAD_SCROLL_POINTER_X = 0.985f
         private const val PAD_SCROLL_HEIGHTS_PER_S = 3f

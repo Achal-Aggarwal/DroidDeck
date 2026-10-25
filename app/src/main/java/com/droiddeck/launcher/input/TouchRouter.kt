@@ -2,11 +2,6 @@ package com.droiddeck.launcher.input
 
 import com.droiddeck.launcher.session.SessionPrefs
 
-/**
- * Single decision point for where a touchscreen MotionEvent goes. Faithful
- * extraction of the SessionActivity.onTouchEvent waterfall; the ordering of
- * the checks is the contract.
- */
 object TouchRouter {
     enum class Route { BLOCKED, GESTURES, SCROLL, OFF, TOUCHPAD, DIRECT }
 
@@ -26,7 +21,6 @@ object TouchRouter {
         return if (touchpad(s)) Route.TOUCHPAD else Route.DIRECT
     }
 
-    /** Steam's Big Picture zone intercepts three-finger taps before the route handles the event. */
     fun steamKeyboardZone(s: Snapshot): Boolean = s.steamSession && !s.steamDesktopUi
 
     private fun touchpad(s: Snapshot): Boolean = when (s.mode) {

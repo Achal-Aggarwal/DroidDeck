@@ -236,7 +236,7 @@ public class FakeInputWriter {
             data.putShort(IMU_ACCEL_OFFSET + (i * 2), (short) 0);
         }
         data.putInt(DECK_CONTROLS_OFFSET, 0);
-        int type = slot == MOUSE_SLOT ? (PAD_TYPE_SET | PAD_TYPE_MOUSE) : padType;
+        int type = slot == MOUSE_SLOT ? PAD_TYPE_MOUSE : padType;
         data.putInt(PAD_TYPE_OFFSET, type >= 0 ? PAD_TYPE_SET | type : 0);
         data.putInt(LATENCY_OFFSET, latency);
         data.putInt(TRITON_OFFSET, TRITON_MAGIC);
@@ -766,6 +766,8 @@ public class FakeInputWriter {
                 writeEvent(EV_KEY, (short) (MOUSE_BTN_LEFT + i), 0);
             }
         }
+        pendingMouseX = 0;
+        pendingMouseY = 0;
 
         if (hasChanges) {
             writeEvent(EV_SYN, SYN_REPORT, 0);

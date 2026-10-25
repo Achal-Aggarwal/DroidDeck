@@ -3370,8 +3370,6 @@ static int copy_ioctl_bits(int op, void *destination, const unsigned char (&bits
 static constexpr uint16_t MOUSE_VENDOR_ID = 0x1dd1;
 static constexpr uint16_t MOUSE_PRODUCT_ID = 0x0004;
 
-// A ring whose PAD_TYPE header says PAD_TYPE_MOUSE is a relative mouse: reads
-// serve ring events verbatim and every capability query reports mouse bits.
 static int ioctl_mouse(int op, void *argp) {
   int type = (op >> 8 & 0xFF);
   int number = (op >> 0 & 0xFF);
@@ -3380,12 +3378,12 @@ static int ioctl_mouse(int op, void *argp) {
     return -1;
   }
   switch (number) {
-    case 0x01: {  // EVIOCGVERSION
+    case 0x01: {
       int version = 65536;
       memcpy(argp, &version, sizeof(int));
       return 0;
     }
-    case 0x02: {  // EVIOCGID
+    case 0x02: {
       struct input_id id;
       memset(&id, 0, sizeof(id));
       id.bustype = 0x03;
@@ -3395,25 +3393,25 @@ static int ioctl_mouse(int op, void *argp) {
       memcpy(argp, &id, sizeof(id));
       return 0;
     }
-    case 0x06:  // EVIOCGNAME
+    case 0x06:
       if (argp && _IOC_SIZE(op)) snprintf(static_cast<char *>(argp), _IOC_SIZE(op), "DroidDeck Mouse");
       return 0;
-    case 0x07:  // EVIOCGPHYS
+    case 0x07:
       if (argp && _IOC_SIZE(op)) snprintf(static_cast<char *>(argp), _IOC_SIZE(op), "usb-droiddeck/mouse");
       return 0;
-    case 0x08:  // EVIOCGUNIQ
+    case 0x08:
       if (argp && _IOC_SIZE(op)) static_cast<char *>(argp)[0] = '\0';
       return 0;
-    case 0x09: {  // EVIOCGPROP
+    case 0x09: {
       unsigned char bitmask[(INPUT_PROP_MAX + 8) / 8] = {};
       bitmask[INPUT_PROP_POINTER / 8] |= 1 << (INPUT_PROP_POINTER % 8);
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x18: {  // EVIOCGKEY: everything released (no keyframe replay)
+    case 0x18: {
       unsigned char bitmask[(KEY_MAX + 8) / 8] = {};
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x20: {  // EVIOCGBIT(0)
+    case 0x20: {
       unsigned char bitmask[(EV_MAX + 8) / 8] = {};
       bitmask[EV_SYN / 8] |= 1 << (EV_SYN % 8);
       bitmask[EV_KEY / 8] |= 1 << (EV_KEY % 8);
@@ -3421,24 +3419,24 @@ static int ioctl_mouse(int op, void *argp) {
       bitmask[EV_MSC / 8] |= 1 << (EV_MSC % 8);
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x21: {  // EVIOCGBIT(EV_KEY)
+    case 0x21: {
       unsigned char bitmask[(KEY_MAX + 8) / 8] = {};
       for (int button = BTN_LEFT; button <= BTN_TASK; button++)
         if (button <= BTN_MIDDLE || button == BTN_SIDE || button == BTN_EXTRA)
           bitmask[button / 8] |= 1 << (button % 8);
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x22: {  // EVIOCGBIT(EV_REL)
+    case 0x22: {
       unsigned char bitmask[(REL_MAX + 8) / 8] = {};
       for (uint16_t code : {REL_X, REL_Y, REL_WHEEL, REL_HWHEEL, REL_WHEEL_HI_RES, REL_HWHEEL_HI_RES})
         bitmask[code / 8] |= 1 << (code % 8);
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x23: {  // EVIOCGBIT(EV_ABS)
+    case 0x23: {
       unsigned char bitmask[(ABS_MAX + 8) / 8] = {};
       return copy_ioctl_bits(op, argp, bitmask);
     }
-    case 0x35: {  // EVIOCGBIT(EV_FF)
+    case 0x35: {
       unsigned char bitmask[(FF_MAX + 8) / 8] = {};
       return copy_ioctl_bits(op, argp, bitmask);
     }
@@ -3785,8 +3783,6 @@ static ssize_t read_input(int fd, void *buf, size_t count) {
             snap.write_seq < fake.read_seq ||
             snap.write_seq - fake.read_seq > FAKE_INPUT_RING_CAPACITY) {
           if (fake.mouse) {
-            // A mouse has no neutral-event keyframe; recovery is to drop the
-            // missed deltas and resume at the writer's position.
             fake.read_seq = snap.write_seq;
             fake.resync_seq = snap.resync_seq;
             fake.needs_keyframe = false;

@@ -552,7 +552,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                     a.touchMode, chipModifier = focus.track(page, "touch"), onPick = a.onTouch)
                                 if (a.touchMode == SessionPrefs.TOUCH_DIRECT || a.touchMode == SessionPrefs.TOUCH_AUTO)
                                     ToggleRow(host, "direct-cursor", stringResource(R.string.drawer_direct_cursor),
-                                        stringResource(R.string.drawer_direct_cursor_hint), a.directCursor,
+                                        null, a.directCursor,
                                         chipModifier = focus.track(page, "direct-cursor"), onChange = a.onDirectCursor)
                                 ActionRow(stringResource(R.string.gesture_settings), stringResource(R.string.gesture_settings_hint),
                                     stringResource(R.string.ctrl_edit), a.onGestureSettings,
@@ -599,7 +599,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                     stringResource(R.string.drawer_low_latency_touch_hint), a.lowLatencyTouch,
                                     chipModifier = focus.track(page, "low-latency-touch"), onChange = a.onLowLatencyTouch)
                                 ToggleRow(host, "evdev-mouse", stringResource(R.string.drawer_evdev_mouse),
-                                    stringResource(R.string.drawer_evdev_mouse_hint), a.evdevMouse,
+                                    null, a.evdevMouse,
                                     chipModifier = focus.track(page, "evdev-mouse"), onChange = a.onEvdevMouse)
                             }
                             SettingsGroup(stringResource(R.string.drawer_keyboard)) {
