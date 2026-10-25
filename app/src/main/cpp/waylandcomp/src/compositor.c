@@ -2693,6 +2693,8 @@ static int send_relative_motion(struct wl_client *client, double dx, double dy) 
 }
 
 
+static void publish_query_state(void);
+
 static void pointer_input(double x, double y, int relative, uint32_t button, int pressed) {
     struct surface *target;
     struct constraint *k = g_active_constraint;
@@ -2761,6 +2763,7 @@ static void pointer_input(double x, double y, int relative, uint32_t button, int
         droiddeck_text_input_refocus();
     }
     wl_display_flush_clients(g_display);
+    publish_query_state();
 }
 
 static void pointer_event(double x, double y, uint32_t button, int pressed) {
@@ -2886,29 +2889,60 @@ static struct surface *touch_target_at(double x, double y) {
     return g_grab ? g_grab : g_key_target;
 }
 
-int droiddeck_focus_takes_touch(void) {
+static pthread_mutex_t g_query_lock = PTHREAD_MUTEX_INITIALIZER;
+struct query_snapshot {
+    int has_position;
+    int input_x, input_y;
+    int focus_takes_touch;
+};
+static struct query_snapshot g_query = { 0, 0, 0, 1 };
+
+static void publish_query_state(void) {
     struct surface *target = g_key_target ? g_key_target : (g_grab ? g_grab : toplevel_at(g_ptr_x, g_ptr_y));
-    if (!target) return 1;
-    struct wl_client *client = wl_resource_get_client(target->resource);
-    struct seat_touch *st;
-    int has_touch = 0;
-    for_each_touch_of(client, st) has_touch = 1;
-    return has_touch;
+    int takes_touch = 1;
+    if (target) {
+        struct wl_client *client = wl_resource_get_client(target->resource);
+        struct seat_touch *st;
+        takes_touch = 0;
+        for_each_touch_of(client, st) takes_touch = 1;
+    }
+    int w = 0, h = 0, ow = 0, oh = 0, input_x = 0, input_y = 0, has_position = 0;
+    scene_size(&w, &h);
+    vkp_output_size(&ow, &oh);
+    if (w > 0 && h > 0) {
+        double ox, oy;
+        if (ow > 0 && oh > 0 && vkp_scene_to_output(g_ptr_x, g_ptr_y, &ox, &oy)) {
+            input_x = (int)(ox * INPUT_SPACE_W / ow);
+            input_y = (int)(oy * INPUT_SPACE_H / oh);
+        } else {
+            input_x = (int)(g_ptr_x * INPUT_SPACE_W / w);
+            input_y = (int)(g_ptr_y * INPUT_SPACE_H / h);
+        }
+        has_position = 1;
+    }
+    pthread_mutex_lock(&g_query_lock);
+    g_query.focus_takes_touch = takes_touch;
+    g_query.has_position = has_position;
+    g_query.input_x = input_x;
+    g_query.input_y = input_y;
+    pthread_mutex_unlock(&g_query_lock);
+}
+
+int droiddeck_focus_takes_touch(void) {
+    pthread_mutex_lock(&g_query_lock);
+    int takes_touch = g_query.focus_takes_touch;
+    pthread_mutex_unlock(&g_query_lock);
+    return takes_touch;
 }
 
 int droiddeck_cursor_input_pos(int *x, int *y) {
-    int w, h, ow, oh;
-    scene_size(&w, &h);
-    if (w <= 0 || h <= 0) return 0;
-    double ox, oy;
-    vkp_output_size(&ow, &oh);
-    if (ow > 0 && oh > 0 && vkp_scene_to_output(g_ptr_x, g_ptr_y, &ox, &oy)) {
-        *x = (int)(ox * INPUT_SPACE_W / ow);
-        *y = (int)(oy * INPUT_SPACE_H / oh);
-    } else {
-        *x = (int)(g_ptr_x * INPUT_SPACE_W / w);
-        *y = (int)(g_ptr_y * INPUT_SPACE_H / h);
-    }
+    pthread_mutex_lock(&g_query_lock);
+    int has_position = g_query.has_position;
+    int input_x = g_query.input_x, input_y = g_query.input_y;
+    pthread_mutex_unlock(&g_query_lock);
+    if (!has_position) return 0;
+    *x = input_x;
+    *y = input_y;
     return 1;
 }
 
@@ -3150,6 +3184,7 @@ static int on_input_readable(int fd, uint32_t mask, void *data) {
         case 21: if (!m.p1) stream_forget_all(); schedule_render(); break;
         default: deliver_pointer(&m); break;
         }
+        publish_query_state();
     }
     if (atomic_exchange(&g_output_refresh_pending, 0) &&
             atomic_load(&g_output_refresh_mhz) != g_output_announced_refresh_mhz) {

@@ -93,6 +93,7 @@ static constexpr unsigned int FAKE_INPUT_MAJOR = 13;
 static constexpr unsigned int FAKE_INPUT_EVENT_MINOR_BASE = 64;
 static constexpr unsigned int FAKE_INPUT_JS_MINOR_BASE = 0;
 static constexpr int UINPUT_EVENT_BASE = 16;
+static constexpr int MOUSE_EVENT_SLOT = 4;
 static constexpr int UINPUT_EVENT_LIMIT = 64;
 static constexpr uint32_t UINPUT_DESCRIPTION_MAGIC = 0x46495544;
 
@@ -1424,6 +1425,12 @@ __attribute__((visibility("hidden"))) static bool is_withdrawn_pad_path(const ch
   if (strncmp(event, "event", 5) && strncmp(event, "js", 2)) return false;
   int number = get_event_number(event);
   if (number < 0 || number >= UINPUT_EVENT_BASE) return false;
+  if (number == MOUSE_EVENT_SLOT && !strncmp(event, "event", 5)) {
+    char *fake = from_real_to_fake_path(pathname);
+    bool exposed = fake && path_exists(fake);
+    free(fake);
+    return !exposed;
+  }
   return number == 0 || !process_is_steam_client();
 }
 

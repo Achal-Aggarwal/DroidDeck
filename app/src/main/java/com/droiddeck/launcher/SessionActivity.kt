@@ -261,9 +261,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun alignCursorToGuest(): Boolean {
         if (pointerLocked || !CompositorHost.isStarted) return false
         if (!WaylandCompositor.nativeCursorInputPos(cursorPosBuf)) return false
-        val rect = drawnRect() ?: return false
-        val x = rect.left + cursorPosBuf[0] / InputSpace.WIDTH.toFloat() * rect.width()
-        val y = rect.top + cursorPosBuf[1] / InputSpace.HEIGHT.toFloat() * rect.height()
+        if (surfaceView.width <= 0 || surfaceView.height <= 0) return false
+        val x = cursorPosBuf[0] / InputSpace.WIDTH.toFloat() * surfaceView.width
+        val y = cursorPosBuf[1] / InputSpace.HEIGHT.toFloat() * surfaceView.height
         if (kotlin.math.abs(x - cursorPos.x) < 0.75f && kotlin.math.abs(y - cursorPos.y) < 0.75f) return false
         cursorPos = androidx.compose.ui.geometry.Offset(x, y)
         return true
@@ -2718,7 +2718,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun sendSceneWheel(steps: Int) {
         val writer = if (evdevMouseActive) mouseWriter else null
-        if (writer != null) writer.writeMouseWheel(steps, 0, 120)
+        if (writer != null) writer.writeMouseWheel(-steps, 0, 120)
         else WaylandCompositor.nativeSendSceneInput(4, steps, 0)
     }
 
