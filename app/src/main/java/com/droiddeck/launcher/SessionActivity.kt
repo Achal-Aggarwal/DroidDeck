@@ -183,6 +183,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private val steamTouchRetry = Runnable { updateOnScreenControls() }
     private var steamTouchOptions: com.droiddeck.launcher.input.SteamTouchConfig.Options? = null
     private var routedTouchMode = SessionPrefs.TOUCH_AUTO
+    private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
     private var controllerSettings by mutableStateOf<ControllerPrefs.Settings?>(null)
     private val sessionClipboard by lazy {
@@ -218,6 +219,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private val cursorHide = Runnable { cursorVisible = false }
     private var lastPadInputMs = 0L
     private val cursorBuf = IntArray(WaylandCompositor.CURSOR_BUF_INTS)
+    private val cursorPosBuf = IntArray(2)
     private var cursorSerial = 0
     private var clientHidesCursor = false
     private var pointerLocked = false
@@ -227,6 +229,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             gesturePointerReady = false
             pointerLocked = locked
             Log.i(TAG, "pointer lock " + if (locked) "taken by a program" else "released")
+            if (locked) openEvdevMouse() else closeEvdevMouse()
             padMouseCheckedAt = 0L
             if (::padMouse.isInitialized) padMouseMode()
             // Touchpad deltas are measured from the middle while locked (moveLockedPointer).
@@ -241,7 +244,29 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var cursorHotX by mutableStateOf(0)
     private var cursorHotY by mutableStateOf(0)
     private var cursorImageScale by mutableStateOf(1f)
-    private val cursorResync = Runnable { if (syncClientCursor() && clientHidesCursor) cursorVisible = false }
+    private val cursorResync = object : Runnable {
+        override fun run() {
+            if (syncClientCursor() && clientHidesCursor) {
+                cursorVisible = false
+                return
+            }
+            alignCursorToGuest()
+            if (cursorVisible) uiHandler.postDelayed(this, 60)
+        }
+    }
+
+    // The overlay cursor normally follows this class's own bookkeeping, but the
+    // guest can move the real pointer underneath it (cursor warp, clamp,
+    // relative drift) — re-anchor to the compositor's authoritative position.
+    private fun alignCursorToGuest() {
+        if (pointerLocked || !CompositorHost.isStarted) return
+        if (!WaylandCompositor.nativeCursorInputPos(cursorPosBuf)) return
+        val rect = drawnRect() ?: return
+        val x = rect.left + cursorPosBuf[0] / InputSpace.WIDTH.toFloat() * rect.width()
+        val y = rect.top + cursorPosBuf[1] / InputSpace.HEIGHT.toFloat() * rect.height()
+        if (kotlin.math.abs(x - cursorPos.x) < 0.75f && kotlin.math.abs(y - cursorPos.y) < 0.75f) return
+        cursorPos = androidx.compose.ui.geometry.Offset(x, y)
+    }
     private val uiHandler = Handler(Looper.getMainLooper())
     private var pendingBackAction: Runnable? = null
     private var drawerDirectionKey = KeyEvent.KEYCODE_UNKNOWN
@@ -303,6 +328,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var backActionsInverted by mutableStateOf(false)
     private var lowLatencyController by mutableStateOf(false)
     private var lowLatencyTouch by mutableStateOf(false)
+    private var evdevMouseOn by mutableStateOf(false)
+    private var mouseWriter: com.droiddeck.launcher.input.FakeInputWriter? = null
+    private var evdevMouseActive = false
     private var padType by mutableStateOf(SessionPrefs.CONTROLLER_DECK)
     private var pcKeyboardOpen by mutableStateOf(false)
     private var achievementsInFront by mutableStateOf<AchievementsInFront?>(null)
@@ -905,6 +933,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                         lowLatencyTouch = on
                         applyLowLatency()
                     },
+                    evdevMouse = evdevMouseOn,
+                    onEvdevMouse = { on ->
+                        SessionPrefs.setEvdevMouse(this@SessionActivity, on)
+                        evdevMouseOn = on
+                        if (on) { if (pointerLocked) openEvdevMouse() } else closeEvdevMouse()
+                    },
                     onOsc = { v ->
                         SessionPrefs.setOscMode(this@SessionActivity, v)
                         readPrefs()
@@ -1493,6 +1527,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         backActionsInverted = SessionPrefs.backActionsInverted(this)
         lowLatencyController = SessionPrefs.lowLatencyController(this)
         lowLatencyTouch = SessionPrefs.lowLatencyTouch(this)
+        evdevMouseOn = SessionPrefs.evdevMouse(this)
+        if (!evdevMouseOn) closeEvdevMouse()
         padType = SessionPrefs.steamController(this)
     }
 
@@ -2246,12 +2282,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         override fun moveBy(dx: Float, dy: Float, relative: Boolean) {
             val rect = drawnRect() ?: return
             if (relative || pointerLocked) {
-                val scale = SessionState.outputSize.first / rect.width()
-                WaylandCompositor.sendPointerDelta(dx * scale, dy * scale)
+                val scale = sceneScale(rect)
+                sendSceneDelta(dx * scale, dy * scale)
             } else moveTo(gesturePointerX + dx, gesturePointerY + dy)
         }
         override fun button(code: Int, down: Boolean) {
-            WaylandCompositor.nativeSendSceneInput(3, code, if (down) 1 else 0)
+            sendSceneButton(code, down)
         }
         override fun prepareRelativePan() {
             if (pointerLocked) return
@@ -2265,7 +2301,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             if (down) gestureKeysDown.add(code) else gestureKeysDown.remove(code)
             if (code !in guestKeysDown) WaylandCompositor.nativeSendKey(code, if (down) 1 else 0)
         }
-        override fun wheel(steps: Int) { WaylandCompositor.nativeSendSceneInput(4, steps, 0) }
+        override fun wheel(steps: Int) { sendSceneWheel(steps) }
         override fun showKeyboard() { uiHandler.post { touchscreenGestures.cancel(); togglePcKeyboard() } }
         override fun gesture(gesture: TouchscreenGestures.Gesture) {
             recognizedGesture = gesture
@@ -2280,9 +2316,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
         override fun onButton(button: Int, pressed: Boolean, x: Float, y: Float) {
             if (!pointerLocked) movePointer(x, y)
-            WaylandCompositor.nativeSendSceneInput(3, button, if (pressed) 1 else 0)
+            sendSceneButton(button, pressed)
         }
-        override fun onWheel(steps: Int) { WaylandCompositor.nativeSendSceneInput(4, steps, 0) }
+        override fun onWheel(steps: Int) { sendSceneWheel(steps) }
         override fun onLongPress() {
             @Suppress("DEPRECATION")
             (getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator)?.vibrate(15)
@@ -2352,8 +2388,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun moveLockedPointer(x: Float, y: Float) {
         val rect = drawnRect() ?: return
-        val scale = SessionState.outputSize.first / rect.width()
-        WaylandCompositor.sendPointerDelta((x - rect.centerX()) * scale, (y - rect.centerY()) * scale)
+        val scale = sceneScale(rect)
+        sendSceneDelta((x - rect.centerX()) * scale, (y - rect.centerY()) * scale)
         touchpad.place(rect.centerX(), rect.centerY())
         cursorVisible = false
     }
@@ -2598,10 +2634,18 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (::touchpad.isInitialized) touchpad.cancel()
         if (::directTouchHold.isInitialized) directTouchHold.cancel()
         if (::scrollTouch.isInitialized) scrollTouch.cancel()
-        if (CompositorHost.isStarted) WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
+        // Only a mode that hands the guest real touch points can leave a touch
+        // stream behind that needs cancelling; AUTO resolves at runtime, so
+        // treat it as delivering.
+        if (CompositorHost.isStarted &&
+            (deliversTouches(routedTouchMode) || deliversTouches(next)))
+            WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
         if (next == SessionPrefs.TOUCH_OFF) cursorVisible = false
         routedTouchMode = next
     }
+
+    private fun deliversTouches(mode: String) =
+        mode == SessionPrefs.TOUCH_DIRECT || mode == SessionPrefs.TOUCH_AUTO
 
     private fun usingTouchpad(): Boolean = when (routedTouchMode) {
         SessionPrefs.TOUCH_PAD -> true
@@ -2611,6 +2655,50 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private val gamePictureBounds = FloatArray(4)
     private var topPictureMapped = false
+
+    private fun sceneScale(rect: android.graphics.RectF): Float =
+        SessionState.outputSize.first / rect.width()
+
+    // While a game holds the pointer and the raw mouse channel is on, pointer
+    // input goes to a guest evdev mouse instead of wl_pointer; games that read
+    // raw devices get native relative motion, and the rest see none (off by
+    // default because a non-raw-input game then loses its mouse).
+    private fun openEvdevMouse() {
+        if (evdevMouseActive || !evdevMouseOn) return
+        val dir = File(LinuxRuntime.sessionRoot(this), "dev/input")
+        val writer = com.droiddeck.launcher.input.FakeInputWriter(
+            dir.absolutePath, com.droiddeck.launcher.input.FakeInputWriter.MOUSE_SLOT)
+        if (!writer.open()) return
+        mouseWriter = writer
+        evdevMouseActive = true
+        Log.i(TAG, "raw mouse channel active (pointer locked)")
+    }
+
+    private fun closeEvdevMouse() {
+        if (!evdevMouseActive) return
+        mouseWriter?.let { it.softRelease(); it.destroy() }
+        mouseWriter = null
+        evdevMouseActive = false
+        Log.i(TAG, "raw mouse channel released")
+    }
+
+    private fun sendSceneDelta(dx: Float, dy: Float) {
+        val writer = if (evdevMouseActive) mouseWriter else null
+        if (writer != null) writer.writeMouseDelta(dx, dy)
+        else WaylandCompositor.sendPointerDelta(dx, dy)
+    }
+
+    private fun sendSceneButton(code: Int, down: Boolean) {
+        val writer = if (evdevMouseActive) mouseWriter else null
+        if (writer != null) writer.writeMouseButton(code.toShort(), down)
+        else WaylandCompositor.nativeSendSceneInput(3, code, if (down) 1 else 0)
+    }
+
+    private fun sendSceneWheel(steps: Int) {
+        val writer = if (evdevMouseActive) mouseWriter else null
+        if (writer != null) writer.writeMouseWheel(steps, 0, 120)
+        else WaylandCompositor.nativeSendSceneInput(4, steps, 0)
+    }
 
     private fun drawnRect(): android.graphics.RectF? {
         val width = surfaceView.width.takeIf { it > 0 } ?: return null
@@ -2631,35 +2719,58 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)) return onMouse(event)
-        if (drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || pipUi || SessionState.suspended) return true
-        if (routedTouchMode == SessionPrefs.TOUCH_GESTURES) {
-            if (event.actionMasked == MotionEvent.ACTION_DOWN) gesturePointerReady = false
-            return touchscreenGestures.onTouch(event)
-        }
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+        val uiBlocking = drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || pipUi || SessionState.suspended
+        if (event.actionMasked == MotionEvent.ACTION_DOWN && !uiBlocking && routedTouchMode != SessionPrefs.TOUCH_GESTURES) {
             scrollTouchGesture = scrollTouchMode()
             scrollRestX = 0f
             scrollRestY = 0f
         }
-        if (scrollTouchGesture) return scrollTouch.onTouch(event)
-        if (routedTouchMode == SessionPrefs.TOUCH_OFF) return true
-        if (SessionState.mode == SessionService.MODE_STEAM && SessionState.steamUi != "desktop") {
-            val wasActive = threeFingerTap.active
-            if (threeFingerTap.onTouch(event)) padBridge?.triggerSteamKeyboard()
-            if (threeFingerTap.active && !wasActive) {
-                if (usingTouchpad()) touchpad.cancel() else WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
-            }
-            if (threeFingerTap.active || wasActive) return true
+        val snapshot = com.droiddeck.launcher.input.TouchRouter.Snapshot(
+            uiBlocking = uiBlocking,
+            mode = routedTouchMode,
+            scrollLayer = scrollTouchGesture,
+            steamSession = SessionState.mode == SessionService.MODE_STEAM,
+            steamDesktopUi = SessionState.steamUi == "desktop",
+        )
+        val route = com.droiddeck.launcher.input.TouchRouter.decide(snapshot)
+        if (route != touchRoute) {
+            Log.i(TAG, "touch route $touchRoute -> $route (mode=$routedTouchMode steamUi=${SessionState.steamUi} scrollLayer=$scrollTouchGesture)")
+            touchRoute = route
         }
-        if (usingTouchpad()) {
-            val rect = drawnRect() ?: return false
-            if (touchpad.bounds != rect) {
-                val fresh = touchpad.bounds.width() <= 1f
-                touchpad.bounds = rect
-                if (fresh) touchpad.place(rect.centerX(), rect.centerY())
+        return when (route) {
+            com.droiddeck.launcher.input.TouchRouter.Route.BLOCKED,
+            com.droiddeck.launcher.input.TouchRouter.Route.OFF -> true
+            com.droiddeck.launcher.input.TouchRouter.Route.GESTURES -> {
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) gesturePointerReady = false
+                touchscreenGestures.onTouch(event)
             }
-            return touchpad.onTouch(event)
+            com.droiddeck.launcher.input.TouchRouter.Route.SCROLL -> scrollTouch.onTouch(event)
+            else -> {
+                if (com.droiddeck.launcher.input.TouchRouter.steamKeyboardZone(snapshot)) {
+                    val wasActive = threeFingerTap.active
+                    if (threeFingerTap.onTouch(event)) padBridge?.triggerSteamKeyboard()
+                    if (threeFingerTap.active && !wasActive) {
+                        if (route == com.droiddeck.launcher.input.TouchRouter.Route.TOUCHPAD) touchpad.cancel()
+                        else WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
+                    }
+                    if (threeFingerTap.active || wasActive) return true
+                }
+                if (route == com.droiddeck.launcher.input.TouchRouter.Route.TOUCHPAD) {
+                    val rect = drawnRect() ?: return false
+                    if (touchpad.bounds != rect) {
+                        val fresh = touchpad.bounds.width() <= 1f
+                        touchpad.bounds = rect
+                        if (fresh) touchpad.place(rect.centerX(), rect.centerY())
+                    }
+                    touchpad.onTouch(event)
+                } else {
+                    dispatchDirectTouch(event)
+                }
+            }
         }
+    }
+
+    private fun dispatchDirectTouch(event: MotionEvent): Boolean {
         val rect = drawnRect() ?: return false
         if (event.actionMasked == MotionEvent.ACTION_DOWN)
             ignoreGameTouch = topPictureMapped && !rect.contains(event.x, event.y)
@@ -2679,8 +2790,13 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 WaylandCompositor.nativeSendTouch(3, -1, 0, 0)
-                listOf(PointerGestures.BTN_LEFT, PointerGestures.BTN_RIGHT, PointerGestures.BTN_MIDDLE).forEach {
-                    WaylandCompositor.nativeSendSceneInput(3, it, 0)
+                // A client that takes no wl_touch receives touches as pointer
+                // drags; releasing the mouse buttons here would cancel its own
+                // in-progress drag.
+                if (WaylandCompositor.nativeFocusTakesTouch()) {
+                    listOf(PointerGestures.BTN_LEFT, PointerGestures.BTN_RIGHT, PointerGestures.BTN_MIDDLE).forEach {
+                        WaylandCompositor.nativeSendSceneInput(3, it, 0)
+                    }
                 }
                 sendTouch(0, event.actionIndex)
             }
@@ -2704,11 +2820,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     MotionEvent.BUTTON_TERTIARY -> PointerGestures.BTN_MIDDLE
                     else -> PointerGestures.BTN_LEFT
                 }
-                WaylandCompositor.nativeSendSceneInput(3, button, if (event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS) 1 else 0)
+                sendSceneButton(button, event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS)
             }
             MotionEvent.ACTION_SCROLL -> {
                 val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
-                if (v != 0f) WaylandCompositor.nativeSendSceneInput(4, -Math.round(v), 0)
+                if (v != 0f) sendSceneWheel(-Math.round(v))
             }
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP -> {}
             else -> return false
@@ -2739,7 +2855,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     dx += event.getHistoricalX(i)
                     dy += event.getHistoricalY(i)
                 }
-                WaylandCompositor.sendPointerDelta(dx, dy)
+                sendSceneDelta(dx, dy)
             }
             MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> {
                 val button = when (event.actionButton) {
@@ -2747,11 +2863,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     MotionEvent.BUTTON_TERTIARY -> PointerGestures.BTN_MIDDLE
                     else -> PointerGestures.BTN_LEFT
                 }
-                WaylandCompositor.nativeSendSceneInput(3, button, if (event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS) 1 else 0)
+                sendSceneButton(button, event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS)
             }
             MotionEvent.ACTION_SCROLL -> {
                 val v = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
-                if (v != 0f) WaylandCompositor.nativeSendSceneInput(4, -Math.round(v), 0)
+                if (v != 0f) sendSceneWheel(-Math.round(v))
             }
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP -> {}
             else -> return false
@@ -3506,6 +3622,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     override fun onDestroy() {
         steamVrRecovery.close()
         uiHandler.removeCallbacks(steamTouchRetry)
+        closeEvdevMouse()
         if (runtimeRemovalBlocked) { super.onDestroy(); return }
         watching = false
         releaseDrawerDirection()
