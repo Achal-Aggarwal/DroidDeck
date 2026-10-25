@@ -121,6 +121,7 @@ static constexpr size_t FAKE_INPUT_RING_HEADER_SIZE =
 static constexpr size_t FAKE_INPUT_RING_SIZE =
     FAKE_INPUT_RING_HEADER_SIZE +
     (FAKE_INPUT_RING_CAPACITY * FAKE_INPUT_EVENT_SIZE);
+static constexpr size_t DECK_IMU_BLOCK_SIZE = 64;
 static constexpr size_t FAKE_INPUT_RING_PAD_TYPE_OFFSET = 44;
 static constexpr uint32_t PAD_TYPE_DECK = 0, PAD_TYPE_STEAM = 1, PAD_TYPE_XBOX = 2, PAD_TYPE_DS4 = 3,
                           PAD_TYPE_DUALSENSE = 4, PAD_TYPE_LAST = PAD_TYPE_DUALSENSE,
@@ -613,7 +614,7 @@ open_fake_input_ring(const char *event, int flags) {
   int slot = get_event_number(event);
   bool virtual_pad = slot >= UINPUT_EVENT_BASE;
   std::string ring_path = virtual_pad ? uinput_ring_path(slot) : get_ring_path_for_slot(slot);
-  size_t mapping_size = virtual_pad ? UINPUT_FILE_SIZE : FAKE_INPUT_RING_SIZE;
+  size_t mapping_size = virtual_pad ? UINPUT_FILE_SIZE : FAKE_INPUT_RING_SIZE + DECK_IMU_BLOCK_SIZE;
   if (ring_path.empty()) {
     Logger::log("No input ring is configured for %s (slot %d)\n", event, slot);
     errno = ENODEV;
@@ -1193,7 +1194,6 @@ struct DeckExtras {
   uint32_t controls = 0;
 };
 static constexpr uint32_t DECK_IMU_MAGIC = 0x31554D49;
-static constexpr size_t DECK_IMU_BLOCK_SIZE = 64;
 static_assert(sizeof(DeckImu) <= DECK_IMU_BLOCK_SIZE, "the IMU block is 64 bytes in the ring file");
 
 struct TritonSharedData {
