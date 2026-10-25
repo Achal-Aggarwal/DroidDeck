@@ -2745,9 +2745,11 @@ static void pointer_input(double x, double y, int relative, uint32_t button, int
     // may have warped its cursor since the last motion (before taking lock,
     // or while releasing it), so that replay can become an unintended pan.
     // Absolute touch events still carry their position, including on clicks.
-    if (!(k && k->is_lock) && (!relative || dx != 0 || dy != 0))
+    // A client bound to relative_pointer consumes the deltas; replaying the
+    // cached absolute position on top would double its motion.
+    int rel_consumed = send_relative_motion(client, dx, dy);
+    if (!(k && k->is_lock) && !(relative && rel_consumed) && (!relative || dx != 0 || dy != 0))
         for_each_pointer_of(client, sp) wl_pointer_send_motion(sp->ptr, t, fx, fy);
-    send_relative_motion(client, dx, dy);
     for_each_pointer_of(client, sp) {
         if (button)
             wl_pointer_send_button(sp->ptr, wl_display_next_serial(g_display), t, button,
@@ -2884,6 +2886,35 @@ static struct surface *touch_target_at(double x, double y) {
     if (target) return target;
     if (g_desktop) return g_desktop;
     return g_grab ? g_grab : g_key_target;
+}
+
+int droiddeck_focus_takes_touch(void) {
+    struct surface *target = g_key_target ? g_key_target : (g_grab ? g_grab : toplevel_at(g_ptr_x, g_ptr_y));
+    if (!target) return 1;
+    struct wl_client *client = wl_resource_get_client(target->resource);
+    struct seat_touch *st;
+    int has_touch = 0;
+    for_each_touch_of(client, st) has_touch = 1;
+    return has_touch;
+}
+
+// The host overlay cursor tracks the pointer position on its own; this hands
+// back the compositor's authoritative position so the overlay can re-anchor
+// after a game warps the cursor or a clamp moved it.
+int droiddeck_cursor_input_pos(int *x, int *y) {
+    int w, h, ow, oh;
+    scene_size(&w, &h);
+    if (w <= 0 || h <= 0) return 0;
+    double ox, oy;
+    vkp_output_size(&ow, &oh);
+    if (ow > 0 && oh > 0 && vkp_scene_to_output(g_ptr_x, g_ptr_y, &ox, &oy)) {
+        *x = (int)(ox * INPUT_SPACE_W / ow);
+        *y = (int)(oy * INPUT_SPACE_H / oh);
+    } else {
+        *x = (int)(g_ptr_x * INPUT_SPACE_W / w);
+        *y = (int)(g_ptr_y * INPUT_SPACE_H / h);
+    }
+    return 1;
 }
 
 static void touch_down(int id, double x, double y) {
