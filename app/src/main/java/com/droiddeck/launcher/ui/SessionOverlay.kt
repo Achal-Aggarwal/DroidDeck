@@ -256,6 +256,8 @@ class DrawerActions(
     val lowLatencyTouch: Boolean = false,
     val onLowLatencyController: (Boolean) -> Unit = {},
     val onLowLatencyTouch: (Boolean) -> Unit = {},
+    val evdevMouse: Boolean = false,
+    val onEvdevMouse: (Boolean) -> Unit = {},
     val onTouch: (String) -> Unit,
     val onGestureSettings: () -> Unit = {},
     val onFexPreset: (String) -> Unit,
@@ -590,6 +592,9 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                 ToggleRow(host, "low-latency-touch", stringResource(R.string.drawer_low_latency_touch),
                                     stringResource(R.string.drawer_low_latency_touch_hint), a.lowLatencyTouch,
                                     chipModifier = focus.track(page, "low-latency-touch"), onChange = a.onLowLatencyTouch)
+                                ToggleRow(host, "evdev-mouse", stringResource(R.string.drawer_evdev_mouse),
+                                    stringResource(R.string.drawer_evdev_mouse_hint), a.evdevMouse,
+                                    chipModifier = focus.track(page, "evdev-mouse"), onChange = a.onEvdevMouse)
                             }
                             SettingsGroup(stringResource(R.string.drawer_keyboard)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(8.dp)) {

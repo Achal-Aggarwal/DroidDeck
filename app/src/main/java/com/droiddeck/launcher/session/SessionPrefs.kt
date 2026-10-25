@@ -217,6 +217,12 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("lowLatencyTouch", on).apply()
     }
 
+    fun evdevMouse(context: Context): Boolean = prefs(context).getBoolean("evdevMouse", false)
+
+    fun setEvdevMouse(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean("evdevMouse", on).apply()
+    }
+
     fun backActionsInverted(context: Context): Boolean = prefs(context).getBoolean("backActionsInverted", false)
 
     fun setBackActionsInverted(context: Context, inverted: Boolean) {
