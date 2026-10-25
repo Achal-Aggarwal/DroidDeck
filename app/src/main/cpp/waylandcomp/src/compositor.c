@@ -2216,6 +2216,7 @@ static const struct wl_touch_interface touch_impl = { .release = touch_release }
 static void touch_res_destroy(struct wl_resource *r) {
     for (int i = 0; i < g_ntouches; i++)
         if (g_touches[i].touch == r) { g_touches[i] = g_touches[--g_ntouches]; break; }
+    publish_query_state();
 }
 
 static void seat_get_pointer(struct wl_client *c, struct wl_resource *r, uint32_t id) {
@@ -2253,6 +2254,7 @@ static void seat_get_touch(struct wl_client *c, struct wl_resource *r, uint32_t 
         g_touches[g_ntouches].focus = NULL;
         g_ntouches++;
     }
+    publish_query_state();
 }
 static void seat_release(struct wl_client *c, struct wl_resource *r) { wl_resource_destroy(r); }
 static const struct wl_seat_interface seat_impl = {
