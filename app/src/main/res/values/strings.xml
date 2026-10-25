@@ -671,9 +671,7 @@
     <string name="drawer_low_latency_touch">Low-latency touch</string>
     <string name="drawer_low_latency_touch_hint">Touches skip frame batching; Steam touch controls at 1000 Hz. Slightly more CPU.</string>
     <string name="drawer_evdev_mouse">Raw mouse channel</string>
-    <string name="drawer_evdev_mouse_hint">While a game locks the pointer, mouse input goes to a native device games read directly. Fixes aim speed in some games; others may stop responding to the mouse.</string>
     <string name="drawer_direct_cursor">Direct-touch cursor</string>
-    <string name="drawer_direct_cursor_hint">Shows the pointer while touches pass straight through. Off for native-touch games; pointer-driven games need it.</string>
     <string name="drawer_pc_keyboard">PC keyboard</string>
     <string name="drawer_android_keyboard">Android</string>
     <string name="drawer_second_screen">Second screen</string>
