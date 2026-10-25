@@ -475,6 +475,7 @@ struct active_touch { struct surface *surface; int pointer_fallback; };
 static struct active_touch g_touch_points[MAX_TOUCH_POINTS];
 static void touch_cancel_surface(struct surface *surface);
 static struct surface *g_grab;
+static void publish_query_state(void);
 static struct surface *g_key_target;
 static struct surface *g_ime_click;
 static int g_input_pipe[2] = {-1, -1};
@@ -568,6 +569,7 @@ static void map_toplevel(struct surface *s) {
     raise_kept_on_top();
     if (!g_desktop) g_key_target = s;
     apply_zorder();
+    publish_query_state();
 }
 
 static void unmap_toplevel(struct surface *s) {
@@ -2693,8 +2695,6 @@ static int send_relative_motion(struct wl_client *client, double dx, double dy) 
 }
 
 
-static void publish_query_state(void);
-
 static void pointer_input(double x, double y, int relative, uint32_t button, int pressed) {
     struct surface *target;
     struct constraint *k = g_active_constraint;
@@ -3045,6 +3045,7 @@ static void deliver_touch(const struct input_msg *m) {
     else if (m->p1 == 1) touch_motion(m->p2, x, y);
     else if (m->p1 == 2) touch_up(m->p2, x, y);
     else if (m->p1 == 3) touch_cancel_all();
+    publish_query_state();
 }
 
 static void key_event(uint32_t evdev, int pressed);
@@ -3184,7 +3185,6 @@ static int on_input_readable(int fd, uint32_t mask, void *data) {
         case 21: if (!m.p1) stream_forget_all(); schedule_render(); break;
         default: deliver_pointer(&m); break;
         }
-        publish_query_state();
     }
     if (atomic_exchange(&g_output_refresh_pending, 0) &&
             atomic_load(&g_output_refresh_mhz) != g_output_announced_refresh_mhz) {
