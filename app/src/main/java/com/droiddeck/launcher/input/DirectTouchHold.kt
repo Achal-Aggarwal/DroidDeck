@@ -40,7 +40,7 @@ class DirectTouchHold(
             MotionEvent.ACTION_DOWN -> {
                 cancel()
                 x = event.x; y = event.y
-                handler.postDelayed(hold, 500L)
+                handler.postDelayed(hold, TouchTiming.HOLD_MS)
             }
             MotionEvent.ACTION_MOVE -> if (event.pointerCount > 1 ||
                 abs(event.x - x) > slopPx || abs(event.y - y) > slopPx) handler.removeCallbacks(hold)
