@@ -87,6 +87,7 @@ data class TouchGestureConfig(
 
         const val MOUSE_BEHAVIOR_HOLD = "hold"
         const val MOUSE_BEHAVIOR_CLICK = "click"
+        const val MOUSE_BEHAVIOR_NONE = "none"
 
         const val MOUSE_DRAG_MOVEMENT_DIRECT = "direct"
         const val MOUSE_DRAG_MOVEMENT_RELATIVE = "relative"
@@ -158,7 +159,7 @@ data class TouchGestureConfig(
                         obj.optString(KEY_LONG_PRESS_MOUSE_BEHAVIOR, MOUSE_BEHAVIOR_HOLD)
                     ),
                     longPressDelay = obj.optInt(KEY_LONG_PRESS_DELAY, DEFAULT_DELAY_MS),
-                    directHoldBehavior = normalizeMouseBehavior(
+                    directHoldBehavior = normalizeDirectHoldBehavior(
                         obj.optString(KEY_DIRECT_HOLD_BEHAVIOR, MOUSE_BEHAVIOR_CLICK)
                     ),
                     doubleTapEnabled = obj.optBoolean(KEY_DOUBLE_TAP_ENABLED, true),
@@ -194,6 +195,10 @@ data class TouchGestureConfig(
             } catch (_: Exception) {
                 fallbackDefaults()
             }
+        }
+
+        private fun normalizeDirectHoldBehavior(value: String): String {
+            return if (value == MOUSE_BEHAVIOR_CLICK || value == MOUSE_BEHAVIOR_NONE) value else MOUSE_BEHAVIOR_HOLD
         }
 
         private fun normalizeMouseBehavior(value: String): String {

@@ -148,6 +148,7 @@ import com.droiddeck.launcher.input.SecondScreenDisplay
 import com.droiddeck.launcher.input.SecondScreenMode
 import com.droiddeck.launcher.input.TouchGestureConfig.Companion.MOUSE_BEHAVIOR_CLICK
 import com.droiddeck.launcher.input.TouchGestureConfig.Companion.MOUSE_BEHAVIOR_HOLD
+import com.droiddeck.launcher.input.TouchGestureConfig.Companion.MOUSE_BEHAVIOR_NONE
 import kotlinx.coroutines.flow.collect
 import java.util.Locale
 
@@ -575,7 +576,8 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                         stringResource(R.string.ctrl_edit), a.onGestureSettings,
                                         modifier = focus.track(page, "gesture-settings"))
                                     SessionPrefs.TOUCH_DIRECT -> ChoiceRow(host, "long-press", stringResource(R.string.gesture_long_press), null,
-                                        listOf(MOUSE_BEHAVIOR_CLICK to stringResource(R.string.gesture_right_click),
+                                        listOf(MOUSE_BEHAVIOR_NONE to stringResource(R.string.widgets_none),
+                                            MOUSE_BEHAVIOR_CLICK to stringResource(R.string.gesture_right_click),
                                             MOUSE_BEHAVIOR_HOLD to stringResource(R.string.gesture_hold_button)),
                                         a.directHoldBehavior, chipModifier = focus.track(page, "long-press"),
                                         onPick = a.onDirectHoldBehavior)
