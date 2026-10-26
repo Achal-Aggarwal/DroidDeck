@@ -35,13 +35,13 @@ class DirectTouchHoldTest {
         hold.cancel()
     }
 
-    @Test fun stillHoldKeepsTheTouchWhenLongPressIsOff() {
+    @Test fun stillHoldClicksRightWithTheDefaultConfig() {
         hold.configure(TouchGestureConfig())
         assertFalse(touch(MotionEvent.ACTION_DOWN))
         advance(2000)
-        assertFalse(touch(MotionEvent.ACTION_MOVE))
-        assertFalse(touch(MotionEvent.ACTION_UP))
-        assertTrue(events.isEmpty())
+        assertTrue(touch(MotionEvent.ACTION_MOVE))
+        assertEquals(listOf("cancel touch", "true at 40.0,30.0", "false at 40.0,30.0"), events)
+        assertTrue(touch(MotionEvent.ACTION_UP))
     }
 
     @Test fun longPressFollowsTheConfiguredDelay() {

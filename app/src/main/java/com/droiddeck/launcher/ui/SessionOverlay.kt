@@ -146,6 +146,8 @@ import com.droiddeck.launcher.session.SessionPrefs
 import com.droiddeck.launcher.session.ComponentsManager
 import com.droiddeck.launcher.input.SecondScreenDisplay
 import com.droiddeck.launcher.input.SecondScreenMode
+import com.droiddeck.launcher.input.TouchGestureConfig.Companion.MOUSE_BEHAVIOR_CLICK
+import com.droiddeck.launcher.input.TouchGestureConfig.Companion.MOUSE_BEHAVIOR_HOLD
 import kotlinx.coroutines.flow.collect
 import java.util.Locale
 
@@ -266,7 +268,9 @@ class DrawerActions(
     val onDirectCursor: (Boolean) -> Unit = {},
     val onTouch: (String) -> Unit,
     val onGestureSettings: () -> Unit = {},
-    val onLongPressSettings: () -> Unit = {},
+    val touchActive: String = "",
+    val directHoldBehavior: String = MOUSE_BEHAVIOR_CLICK,
+    val onDirectHoldBehavior: (String) -> Unit = {},
     val onScreenKeys: (() -> Unit)? = null,
     val onScreenLayouts: (() -> Unit)? = null,
     val screenKeysShown: Boolean = true,
@@ -566,13 +570,15 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                     ToggleRow(host, "direct-cursor", stringResource(R.string.drawer_direct_cursor),
                                         null, a.directCursor,
                                         chipModifier = focus.track(page, "direct-cursor"), onChange = a.onDirectCursor)
-                                when (a.touchMode) {
+                                when (a.touchActive) {
                                     SessionPrefs.TOUCH_GESTURES -> ActionRow(stringResource(R.string.gesture_settings), null,
                                         stringResource(R.string.ctrl_edit), a.onGestureSettings,
                                         modifier = focus.track(page, "gesture-settings"))
-                                    SessionPrefs.TOUCH_DIRECT -> ActionRow(stringResource(R.string.gesture_long_press), null,
-                                        stringResource(R.string.ctrl_edit), a.onLongPressSettings,
-                                        modifier = focus.track(page, "long-press"))
+                                    SessionPrefs.TOUCH_DIRECT -> ChoiceRow(host, "long-press", stringResource(R.string.gesture_long_press), null,
+                                        listOf(MOUSE_BEHAVIOR_CLICK to stringResource(R.string.gesture_right_click),
+                                            MOUSE_BEHAVIOR_HOLD to stringResource(R.string.gesture_hold_button)),
+                                        a.directHoldBehavior, chipModifier = focus.track(page, "long-press"),
+                                        onPick = a.onDirectHoldBehavior)
                                 }
                                 if (a.onScreenKeys != null) {
                                     SettingsRow(stringResource(R.string.screen_keys), null) {
