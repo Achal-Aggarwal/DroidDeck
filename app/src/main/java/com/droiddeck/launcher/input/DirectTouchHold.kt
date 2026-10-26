@@ -28,9 +28,10 @@ class DirectTouchHold(
     private var pressing = false
     private var upX = 0f
     private var upY = 0f
+    private var liftId = 0
     private val lift = Runnable {
         if (forwarded) {
-            touch.up(downId, upX, upY)
+            touch.up(liftId, upX, upY)
             forwarded = false
         }
     }
@@ -104,6 +105,7 @@ class DirectTouchHold(
                 if (!forwarded) forwardDown()
                 upX = event.x
                 upY = event.y
+                liftId = event.getPointerId(event.actionIndex)
                 handler.postDelayed(lift, LIFT_MS)
             }
             MotionEvent.ACTION_CANCEL -> cancel()

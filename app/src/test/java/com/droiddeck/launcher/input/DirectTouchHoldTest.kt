@@ -1,6 +1,7 @@
 package com.droiddeck.launcher.input
 
 import android.os.Looper
+import android.view.InputDevice
 import android.view.MotionEvent
 import java.time.Duration
 import org.junit.Assert.*
@@ -155,9 +156,40 @@ class DirectTouchHoldTest {
         assertEquals(listOf("down 0 at 40.0,30.0", "cancel"), touches)
     }
 
+    @Test fun theSecondFingerLiftsWithItsOwnId() {
+        multi(MotionEvent.ACTION_DOWN, 0, 0 to 40f)
+        multi(MotionEvent.ACTION_POINTER_DOWN, 1, 0 to 40f, 1 to 60f)
+        multi(MotionEvent.ACTION_POINTER_UP, 0, 0 to 40f, 1 to 60f)
+        multi(MotionEvent.ACTION_UP, 0, 1 to 60f)
+        advance(100)
+        assertEquals(
+            listOf("down 0 at 40.0,30.0", "down 1 at 60.0,30.0", "up 0 at 40.0,30.0", "up 1 at 60.0,30.0"),
+            touches,
+        )
+    }
+
     private fun advance(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
     private fun touch(action: Int, x: Float = 40f): Boolean {
         val event = MotionEvent.obtain(0, 0, action, x, 30f, 0)
+        return hold.onTouch(event).also { event.recycle() }
+    }
+    private fun multi(action: Int, index: Int, vararg points: Pair<Int, Float>): Boolean {
+        val properties = Array(points.size) {
+            MotionEvent.PointerProperties().apply {
+                id = points[it].first
+                toolType = MotionEvent.TOOL_TYPE_FINGER
+            }
+        }
+        val coords = Array(points.size) {
+            MotionEvent.PointerCoords().apply {
+                x = points[it].second
+                y = 30f
+                pressure = 1f
+                size = 1f
+            }
+        }
+        val event = MotionEvent.obtain(0, 0, action or (index shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+            points.size, properties, coords, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
         return hold.onTouch(event).also { event.recycle() }
     }
 }
