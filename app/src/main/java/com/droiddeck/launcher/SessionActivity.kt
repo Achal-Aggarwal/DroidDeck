@@ -265,7 +265,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 cursorVisible = false
                 return
             }
-            cursorResyncIdle = if (touchDrivesPointer()) 0 else if (alignCursorToGuest()) 0 else cursorResyncIdle + 1
+            if (touchDrivesPointer()) return
+            cursorResyncIdle = if (alignCursorToGuest()) 0 else cursorResyncIdle + 1
             if (!cursorVisible || pointerLocked) return
             if (cursorResyncIdle > CURSOR_RESYNC_IDLE_TICKS) return
             uiHandler.postDelayed(this, 60)
@@ -2592,7 +2593,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         syncClientCursor()
         uiHandler.removeCallbacks(cursorResync)
         cursorResyncIdle = 0
-        uiHandler.postDelayed(cursorResync, 60)
+        if (!touchDrivesPointer()) uiHandler.postDelayed(cursorResync, 60)
         if (clientHidesCursor) { cursorVisible = false; return }
         if (directTouchCursorHidden()) { cursorVisible = false; return }
         if (android.os.SystemClock.uptimeMillis() - lastPadInputMs < CURSOR_PAD_HOLD_MS) return
