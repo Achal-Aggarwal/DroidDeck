@@ -2986,6 +2986,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             val y = event.getY(index).coerceIn(rect.top, rect.bottom)
             WaylandCompositor.nativeSendTouch(action, event.getPointerId(index),
                 InputSpace.x(x, surfaceView.width), InputSpace.y(y, surfaceView.height))
+            if (action != 3) showCursor(x, y)
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
