@@ -202,6 +202,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var gestureConfig = com.droiddeck.launcher.input.TouchGestureConfig()
     private var gestureGame: String? = null
     private var gestureSettingsOpen by mutableStateOf(false)
+    private var longPressSettingsOpen by mutableStateOf(false)
     private var screenKeyPickerOpen by mutableStateOf(false)
     private var screenKeyBind: List<Int>? = null
     private var screenKeyDir: Int? = null
@@ -805,8 +806,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     }
                     if (nextGame != gestureGame) { gestureGame = nextGame; refreshGestureConfig() }
                 }
-                LaunchedEffect(drawerOpen, pcKeyboardOpen, achievementsOpen, gestureSettingsOpen, pipUi, SessionState.suspended) {
-                    if (drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || pipUi || SessionState.suspended) {
+                LaunchedEffect(drawerOpen, pcKeyboardOpen, achievementsOpen, gestureSettingsOpen, longPressSettingsOpen, pipUi, SessionState.suspended) {
+                    if (drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || longPressSettingsOpen || pipUi || SessionState.suspended) {
                         cancelTouchGestures()
                         screenKeys?.stopEditing()
                     }
@@ -816,6 +817,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     game = gestureGame,
                     onDismiss = { gestureSettingsOpen = false },
                     onSaved = { gestureSettingsOpen = false; refreshGestureConfig() },
+                )
+                if (longPressSettingsOpen) com.droiddeck.launcher.ui.DirectTouchDialog(
+                    game = gestureGame,
+                    onDismiss = { longPressSettingsOpen = false },
+                    onSaved = { longPressSettingsOpen = false; refreshGestureConfig() },
                 )
                 if (screenKeyPickerOpen) {
                     val dir = screenKeyDir
@@ -1098,6 +1104,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     },
                     onTouch = { v -> SessionPrefs.setTouchMode(this@SessionActivity, v); readPrefs() },
                     onGestureSettings = { drawerOpen = false; gestureSettingsOpen = true },
+                    onLongPressSettings = { drawerOpen = false; longPressSettingsOpen = true },
                     onScreenKeys = { drawerOpen = false; screenKeys?.startEditing() },
                     screenKeysShown = screenKeysShown,
                     onScreenKeysShown = { shown ->
@@ -2919,7 +2926,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)) return onMouse(event)
-        val uiBlocking = drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || pipUi || SessionState.suspended
+        val uiBlocking = drawerOpen || pcKeyboardOpen || achievementsOpen || gestureSettingsOpen || longPressSettingsOpen || pipUi || SessionState.suspended
         if (event.actionMasked == MotionEvent.ACTION_DOWN && !uiBlocking && routedTouchMode != SessionPrefs.TOUCH_GESTURES) {
             scrollTouchGesture = scrollTouchMode()
             scrollRestX = 0f
@@ -3404,6 +3411,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         uiHandler.removeCallbacks(clearRecognizedGesture)
         uiHandler.removeCallbacks(cursorResync)
         gestureSettingsOpen = false
+        longPressSettingsOpen = false
         drawerOpen = false
         pcKeyboardOpen = false
         achievementsOpen = false

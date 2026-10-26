@@ -16,6 +16,7 @@ class DirectTouchHold(
     private var consumed = false
     private var pressed = false
     private var delayMs = 0L
+    private var holdBehavior = TouchGestureConfig.MOUSE_BEHAVIOR_HOLD
     private val release = Runnable {
         if (pressed) listener.onButton(PointerGestures.BTN_RIGHT, false, x, y)
         pressed = false
@@ -26,12 +27,13 @@ class DirectTouchHold(
         listener.onLongPress()
         listener.onButton(PointerGestures.BTN_RIGHT, true, x, y)
         pressed = true
-        handler.postDelayed(release, 50L)
+        if (holdBehavior != TouchGestureConfig.MOUSE_BEHAVIOR_HOLD) handler.postDelayed(release, 50L)
     }
 
     fun configure(config: TouchGestureConfig) {
         cancel()
         delayMs = if (config.longPressEnabled) config.longPressDelay.toLong().coerceAtLeast(1L) else 0L
+        holdBehavior = config.longPressMouseBehavior
     }
 
     fun cancel() {
@@ -50,8 +52,8 @@ class DirectTouchHold(
             }
             MotionEvent.ACTION_MOVE -> if (event.pointerCount > 1 ||
                 abs(event.x - x) > slopPx || abs(event.y - y) > slopPx) handler.removeCallbacks(hold)
-            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP,
-            MotionEvent.ACTION_UP -> handler.removeCallbacks(hold)
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP -> handler.removeCallbacks(hold)
+            MotionEvent.ACTION_UP -> { handler.removeCallbacks(hold); release.run() }
             MotionEvent.ACTION_CANCEL -> cancel()
         }
         return consumed

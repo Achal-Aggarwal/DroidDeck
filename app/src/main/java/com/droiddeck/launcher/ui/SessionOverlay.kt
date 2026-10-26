@@ -266,6 +266,7 @@ class DrawerActions(
     val onDirectCursor: (Boolean) -> Unit = {},
     val onTouch: (String) -> Unit,
     val onGestureSettings: () -> Unit = {},
+    val onLongPressSettings: () -> Unit = {},
     val onScreenKeys: (() -> Unit)? = null,
     val onScreenLayouts: (() -> Unit)? = null,
     val screenKeysShown: Boolean = true,
@@ -565,9 +566,14 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                     ToggleRow(host, "direct-cursor", stringResource(R.string.drawer_direct_cursor),
                                         null, a.directCursor,
                                         chipModifier = focus.track(page, "direct-cursor"), onChange = a.onDirectCursor)
-                                ActionRow(stringResource(R.string.gesture_settings), stringResource(R.string.gesture_settings_hint),
-                                    stringResource(R.string.ctrl_edit), a.onGestureSettings,
-                                    modifier = focus.track(page, "gesture-settings"))
+                                when (a.touchMode) {
+                                    SessionPrefs.TOUCH_GESTURES -> ActionRow(stringResource(R.string.gesture_settings), null,
+                                        stringResource(R.string.ctrl_edit), a.onGestureSettings,
+                                        modifier = focus.track(page, "gesture-settings"))
+                                    SessionPrefs.TOUCH_DIRECT -> ActionRow(stringResource(R.string.gesture_long_press), null,
+                                        stringResource(R.string.ctrl_edit), a.onLongPressSettings,
+                                        modifier = focus.track(page, "long-press"))
+                                }
                                 if (a.onScreenKeys != null) {
                                     SettingsRow(stringResource(R.string.screen_keys), null) {
                                         Row(
