@@ -241,7 +241,7 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("evdevMouse", on).apply()
     }
 
-    fun directCursor(context: Context): Boolean = prefs(context).getBoolean("directCursor", true)
+    fun directCursor(context: Context): Boolean = prefs(context).getBoolean("directCursor", false)
 
     fun setDirectCursor(context: Context, on: Boolean) {
         prefs(context).edit().putBoolean("directCursor", on).apply()

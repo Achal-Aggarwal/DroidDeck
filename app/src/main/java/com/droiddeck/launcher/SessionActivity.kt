@@ -347,7 +347,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var lowLatencyController by mutableStateOf(false)
     private var lowLatencyTouch by mutableStateOf(false)
     private var evdevMouseOn by mutableStateOf(false)
-    private var directCursorOn by mutableStateOf(true)
+    private var directCursorOn by mutableStateOf(false)
     private var mouseWriter: com.droiddeck.launcher.input.FakeInputWriter? = null
     private var evdevMouseActive = false
     private var lastMouseX = Float.NaN
