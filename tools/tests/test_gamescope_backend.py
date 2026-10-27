@@ -65,7 +65,7 @@ class DesktopGamescopeBackendTest(unittest.TestCase):
             for name in ("BL_GAMESCOPE_BACKEND", "BL_DEBUG_DIR", "BL_FPS", "BL_REFRESH", "BL_HDR"):
                 env.pop(name, None)
             env.update(PATH=f"{root}{os.pathsep}{env.get('PATH', '')}",
-                       GAMESCOPE_CAPTURE=str(capture), WAYLAND_DISPLAY="desktop-0",
+                       GAMESCOPE_CAPTURE=str(capture), WAYLAND_DISPLAY="desktop-0", BL_DESKTOP_GPU_WINDOW="0",
                        SDL_VIDEODRIVER="dummy", GDK_BACKEND="wayland", QT_QPA_PLATFORM="wayland")
             if backend is not None:
                 env["BL_GAMESCOPE_BACKEND"] = backend

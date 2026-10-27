@@ -11,6 +11,7 @@ import com.droiddeck.launcher.gpu.ScreenEffects
 import com.droiddeck.launcher.gpu.SystemVulkanDriver
 import com.droiddeck.launcher.gpu.TurnipDriver
 import org.json.JSONObject
+import java.io.File
 
 object SessionPrefs {
     data class GameTextureFiltering(val anisotropy: Int? = null, val lodBias: String? = null)
@@ -45,6 +46,8 @@ object SessionPrefs {
     private fun prefs(context: Context) = context.getSharedPreferences("session", Context.MODE_PRIVATE)
 
     val orientationOptions = listOf(
+        ActivityInfo.SCREEN_ORIENTATION_USER to R.string.setup_launcher_orientation_auto,
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT to R.string.setup_orientation_portrait,
         ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE to R.string.setup_orientation_auto,
         ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE to R.string.setup_orientation_landscape,
         ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE to R.string.setup_orientation_reverse,
@@ -58,6 +61,17 @@ object SessionPrefs {
     fun setOrientation(context: Context, orientation: Int) {
         require(orientationOptions.any { it.first == orientation })
         prefs(context).edit().putInt("orientation", orientation).apply()
+    }
+
+    fun windowOrientation(context: Context, followScreen: Boolean, smallestWidthDp: Int): Int =
+        if (followScreen && smallestWidthDp >= SessionDisplay.UNFOLDED_MIN_DP && !prefs(context).contains("orientation"))
+            ActivityInfo.SCREEN_ORIENTATION_USER else orientation(context)
+
+    fun portrait(context: Context): Boolean = when (orientation(context)) {
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT -> true
+        ActivityInfo.SCREEN_ORIENTATION_USER ->
+            context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+        else -> false
     }
 
     fun launcherFullscreen(context: Context): Boolean = prefs(context).getBoolean("launcherFullscreen", true)
@@ -93,13 +107,6 @@ object SessionPrefs {
      */
     fun storesEpicMode(context: Context): String = prefs(context).getString("storesEpicMode", "adaptive") ?: "adaptive"
 
-    fun storesOpenTab(context: Context): String =
-        prefs(context).getString("storesOpenTab", STORES_OPEN_LIBRARY)?.takeIf { it == STORES_OPEN_STORE } ?: STORES_OPEN_LIBRARY
-
-    fun setStoresOpenTab(context: Context, tab: String) {
-        prefs(context).edit().putString("storesOpenTab", if (tab == STORES_OPEN_STORE) STORES_OPEN_STORE else STORES_OPEN_LIBRARY).apply()
-    }
-
     fun storesShowMature(context: Context): Boolean = prefs(context).getBoolean("storesShowMature", false)
 
     fun setStoresShowMature(context: Context, show: Boolean) {
@@ -120,6 +127,12 @@ object SessionPrefs {
         prefs(context).edit().putString("storesView", if (view in STORES_VIEWS) view else STORES_VIEWS.first()).apply()
     }
 
+    fun libraryShowUninstalled(context: Context): Boolean = prefs(context).getBoolean("libraryShowUninstalled", false)
+
+    fun setLibraryShowUninstalled(context: Context, show: Boolean) {
+        prefs(context).edit().putBoolean("libraryShowUninstalled", show).apply()
+    }
+
     fun storesTabOrder(context: Context): List<String> = idList(prefs(context).getString("storesTabOrder", null))
 
     fun setStoresTabOrder(context: Context, order: List<String>) {
@@ -137,9 +150,6 @@ object SessionPrefs {
     val STORES_SORTS = listOf("lastPlayed", "recentlyInstalled", "titleAsc", "titleDesc", "sizeDesc", "sizeAsc", "releaseDateDesc")
     val STORES_VIEWS = listOf("cards", "capsules", "list")
 
-    const val STORES_OPEN_LIBRARY = "library"
-    const val STORES_OPEN_STORE = "store"
-
     fun storesInstallTarget(context: Context): String = prefs(context).getString("storesInstallTarget", "") ?: ""
 
     fun setStoresInstallTarget(context: Context, path: String) {
@@ -151,6 +161,34 @@ object SessionPrefs {
 
     fun setStoresInstallLanguage(context: Context, code: String) {
         prefs(context).edit().putString("storesInstallLanguage", code).apply()
+    }
+
+    const val DEFAULT_STORAGE_ASK = "ask"
+    const val DEFAULT_STORAGE_INTERNAL = "internal"
+    const val DEFAULT_STORAGE_EXTERNAL = "external"
+    private val DEFAULT_STORAGE_VALUES = setOf(DEFAULT_STORAGE_ASK, DEFAULT_STORAGE_INTERNAL, DEFAULT_STORAGE_EXTERNAL)
+
+    fun defaultStorage(context: Context): String =
+        prefs(context).getString("defaultStorage", DEFAULT_STORAGE_ASK)
+            ?.takeIf { it in DEFAULT_STORAGE_VALUES } ?: DEFAULT_STORAGE_ASK
+
+    fun setDefaultStorage(context: Context, value: String) {
+        prefs(context).edit().putString("defaultStorage", value.takeIf { it in DEFAULT_STORAGE_VALUES } ?: DEFAULT_STORAGE_ASK).apply()
+    }
+
+    fun defaultStorageFolder(context: Context): String = prefs(context).getString("defaultStorageFolder", "") ?: ""
+
+    fun defaultStorageFolderLabel(context: Context): String = prefs(context).getString("defaultStorageFolderLabel", "") ?: ""
+
+    fun setDefaultStorageFolder(context: Context, path: String, label: String) {
+        prefs(context).edit()
+            .putString("defaultStorageFolder", path)
+            .putString("defaultStorageFolderLabel", label)
+            .apply()
+    }
+
+    fun clearDefaultStorageFolder(context: Context) {
+        prefs(context).edit().remove("defaultStorageFolder").remove("defaultStorageFolderLabel").apply()
     }
 
     fun gameStoresParallel(context: Context): Int = prefs(context).getInt("gameStoresParallel", 1).coerceIn(1, 3)
@@ -207,22 +245,26 @@ object SessionPrefs {
     private fun mangoappSession(context: Context) =
         SessionState.mode == SessionService.MODE_STEAM && mangoapp(context)
 
-    fun lowLatencyController(context: Context): Boolean = prefs(context).getBoolean("lowLatencyController", false)
+    fun lowLatency(context: Context): Boolean = prefs(context).getBoolean("lowLatency", true)
 
-    fun setLowLatencyController(context: Context, on: Boolean) {
-        prefs(context).edit().putBoolean("lowLatencyController", on).apply()
-    }
-
-    fun lowLatencyTouch(context: Context): Boolean = prefs(context).getBoolean("lowLatencyTouch", false)
-
-    fun setLowLatencyTouch(context: Context, on: Boolean) {
-        prefs(context).edit().putBoolean("lowLatencyTouch", on).apply()
+    fun setLowLatency(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean("lowLatency", on).apply()
     }
 
     fun backActionsInverted(context: Context): Boolean = prefs(context).getBoolean("backActionsInverted", false)
 
     fun setBackActionsInverted(context: Context, inverted: Boolean) {
         prefs(context).edit().putBoolean("backActionsInverted", inverted).apply()
+    }
+
+    val BACK_DOUBLE_TAP_MS_OPTIONS = (100..800 step 100).toList()
+
+    fun backDoubleTapMs(context: Context): Int =
+        prefs(context).getInt("backDoubleTapMs", 500).takeIf { it in BACK_DOUBLE_TAP_MS_OPTIONS } ?: 500
+
+    fun setBackDoubleTapMs(context: Context, ms: Int) {
+        require(ms in BACK_DOUBLE_TAP_MS_OPTIONS)
+        prefs(context).edit().putInt("backDoubleTapMs", ms).apply()
     }
 
     const val TOUCH_AUTO = "auto"
@@ -476,6 +518,24 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("gamescopeRealtime", on).apply()
     }
 
+    fun ramCapMb(context: Context): Int = prefs(context).getInt("ramCapMb", 0).coerceAtLeast(0)
+
+    fun setRamCapMb(context: Context, mb: Int) {
+        prefs(context).edit().putInt("ramCapMb", mb.coerceAtLeast(0)).apply()
+    }
+
+    fun zramClient(context: Context): Boolean = prefs(context).getBoolean("zramClient", true)
+
+    fun setZramClient(context: Context, on: Boolean) {
+        prefs(context).edit().putBoolean("zramClient", on).apply()
+    }
+
+    fun vramCapMb(context: Context): Int = prefs(context).getInt("vramCapMb", 0).coerceAtLeast(0)
+
+    fun setVramCapMb(context: Context, mb: Int) {
+        prefs(context).edit().putInt("vramCapMb", mb.coerceAtLeast(0)).apply()
+    }
+
     fun gpuClockPin(context: Context): Boolean = prefs(context).getBoolean("gpuClockPin", false)
 
     fun setGpuClockPin(context: Context, on: Boolean) {
@@ -503,6 +563,15 @@ object SessionPrefs {
     fun setCursorComposite(context: Context, on: Boolean) {
         prefs(context).edit().putBoolean("cursorComposite", on).apply()
     }
+
+    /**
+     * The rootfs ships Termux's unpatched proot. A session uses it only when this file exists,
+     * so a missing add-on pack cannot silently fall back to it.
+     * Path: Android/data/&lt;package&gt;/files/droiddeck-stock-proot
+     */
+    @JvmStatic
+    fun allowStockProot(context: Context): Boolean =
+        context.getExternalFilesDir(null)?.let { File(it, "droiddeck-stock-proot").isFile } == true
 
     const val DEFAULT_GUEST_HOSTNAME = "DroidDeck"
 
@@ -686,6 +755,32 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("detailedGraphicsLogs", on).apply()
     }
 
+    fun battleNetNoSteamSet(context: Context): Boolean = prefs(context).getBoolean("battleNetNoSteamSet", false)
+    fun setBattleNetNoSteamSet(context: Context) { prefs(context).edit().putBoolean("battleNetNoSteamSet", true).apply() }
+
+    fun clearCachedApps(context: Context): Boolean = prefs(context).getBoolean("clearCachedApps", false)
+    fun setClearCachedApps(context: Context, on: Boolean) { prefs(context).edit().putBoolean("clearCachedApps", on).apply() }
+
+    fun backgroundAppLimit(context: Context): Int =
+        prefs(context).getInt("backgroundAppLimit", com.droiddeck.launcher.core.BackgroundAppLimit.OFF)
+            .takeIf { it in com.droiddeck.launcher.core.BackgroundAppLimit.CHOICES } ?: com.droiddeck.launcher.core.BackgroundAppLimit.OFF
+    fun setBackgroundAppLimit(context: Context, limit: Int) {
+        require(limit in com.droiddeck.launcher.core.BackgroundAppLimit.CHOICES)
+        prefs(context).edit().putInt("backgroundAppLimit", limit).apply()
+    }
+
+    const val MEMORY_HUD_OFF = "off"
+    const val MEMORY_HUD_SIMPLE = "simple"
+    const val MEMORY_HUD_ADVANCED = "advanced"
+
+    fun memoryHud(context: Context): String =
+        prefs(context).getString("memoryHud", MEMORY_HUD_OFF)
+            ?.takeIf { it == MEMORY_HUD_SIMPLE || it == MEMORY_HUD_ADVANCED } ?: MEMORY_HUD_OFF
+    fun setMemoryHud(context: Context, value: String) {
+        require(value == MEMORY_HUD_OFF || value == MEMORY_HUD_SIMPLE || value == MEMORY_HUD_ADVANCED)
+        prefs(context).edit().putString("memoryHud", value).apply()
+    }
+
     fun storageDiagnosticsEnabled(context: Context): Boolean =
         prefs(context).getBoolean("storageDiagnostics", false)
 
@@ -714,8 +809,10 @@ object SessionPrefs {
             parseResolution(value)?.let { return "${it.first}x${it.second}" }
         }
         if (!resolutionChosen(context, mode) && !saved.contains("shape")) return SessionDisplay.DEFAULT_RESOLUTION
-        val legacy = SessionDisplay.resolve(panel, resolutionCap(context, mode), shapeMode(context), customResolution(context, mode))
+        val custom = customResolution(context, mode)
+        val legacy = SessionDisplay.resolve(panel, resolutionCap(context, mode), shapeMode(context), custom)
         return if (legacy == SessionDisplay.screenSize(panel)) SessionDisplay.MATCH_SCREEN
+        else if (custom == null && legacy == SessionDisplay.resolve(panel, legacy.second, SHAPE_AUTO)) "${legacy.second}p"
         else "${legacy.first}x${legacy.second}"
     }
 
@@ -963,16 +1060,15 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("hdr.$mode", on).apply()
     }
 
-    fun fpsLimit(context: Context, mode: String): Int = prefs(context).getInt("fpsLimit.$mode", 0)
+    /** Compositor frame limit that releases buffers to the game unpaced. */
+    const val FPS_UNPACED = -1
 
-    fun setFpsLimit(context: Context, mode: String, fps: Int) {
-        prefs(context).edit().putInt("fpsLimit.$mode", fps.coerceAtLeast(0)).apply()
-    }
-
-    val fpsLimitChoices = listOf(0 to "Off", 30 to "30", 40 to "40", 45 to "45", 60 to "60", 90 to "90", 120 to "120")
-
-    fun fpsLimitChoices(context: Context): List<Pair<Int, String>> =
-        fpsLimitChoices.map { (fps, label) -> fps to if (fps == 0) context.getString(R.string.frame_gen_off) else label }
+    /**
+     * Buffers go back to the game as soon as they are replaced instead of once per refresh;
+     * Steam's Frame Limit in the Quick Access menu caps games. Mirroring still follows the glasses' refresh rate.
+     */
+    fun compositorFpsLimit(mirrorRefreshLimit: Int): Int =
+        if (mirrorRefreshLimit <= 0) FPS_UNPACED else mirrorRefreshLimit
 
     val upscalerChoices = listOf(
         0 to "Linear", 2 to "Nearest", 4 to "AMD FSR 1", 3 to "Snapdragon GSR",
@@ -1160,6 +1256,18 @@ object SessionPrefs {
     }
 
     fun unfoldedControls(context: Context): Boolean = prefs(context).getBoolean("unfoldedControls", false)
+
+    fun controlsBelowWanted(context: Context, mode: String, width: Int, height: Int, pip: Boolean = false): Boolean =
+        SessionDisplay.unfoldedControlsWanted(
+            enabled = unfoldedControls(context),
+            foldable = SessionDisplay.foldable(context),
+            controllerConnected = com.droiddeck.launcher.input.PadBridge.anyControllerConnected() ||
+                com.droiddeck.launcher.input.SteamControllerBle.connected,
+            keepWithController = unfoldedControlsWithController(context),
+            gamepadAvailable = mode == SessionService.MODE_STEAM && builtinPad(context),
+            pip = pip, width = width, height = height,
+            smallestWidthDp = context.resources.configuration.smallestScreenWidthDp,
+        )
 
     fun setUnfoldedControls(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean("unfoldedControls", enabled).apply()

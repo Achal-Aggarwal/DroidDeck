@@ -17,6 +17,11 @@ object SteamRedists {
         // OpenAL 2.0.7.0 (Hotline Miami lists it; without it HotlineGL.exe fails to load, c0000135).
         "229020" to ("oalinst_dll" to "OpenAL"),
     )
+    /** Redists a game's own install script runs on Windows that its shared depots don't name. */
+    val SCRIPTED = mapOf(
+        72850 to listOf("xact" to "DirectX XACT audio"),
+        489830 to listOf("xact_x64" to "DirectX XACT audio (64-bit)"),
+    )
     private val BLOCK = Regex("\"SharedDepots\"\\s*\\{([^}]*)\\}", RegexOption.IGNORE_CASE)
     private val ENTRY = Regex("\"(\\d+)\"\\s+\"\\d+\"")
 
@@ -24,6 +29,17 @@ object SteamRedists {
         val steamapps = gameDir?.parentFile?.parentFile ?: return null
         return File(steamapps, "appmanifest_$appId.acf").takeIf { it.isFile }
     }
+
+    /** Redists the game's own install script has Steam run on Windows, from its "Run Process" entries. */
+    fun installScript(gameDir: File?): List<Pair<String, String>> =
+        gameDir?.listFiles { f ->
+            f.isFile && f.length() < 1L shl 20 && f.name.lowercase().let { it.startsWith("installscript") && it.endsWith(".vdf") }
+        }.orEmpty().sortedBy { it.name }.flatMap { file ->
+            val root = runCatching { com.droiddeck.launcher.input.KeyValues.parse(file.readText()) }.getOrNull() ?: return@flatMap emptyList()
+            (root.child("InstallScript") ?: root).children("Run Process")
+                .flatMap { run -> run.entries.mapNotNull { (it.second as? com.droiddeck.launcher.input.KeyValues.Node)?.string("process 1") } }
+                .flatMap { path -> DependencyDetector.componentsFor(path).map { it to DependencyDetector.label(it) } }
+        }.distinctBy { it.first }
 
     fun detect(gameDir: File?, appId: Int): List<DependencyDetector.Recommendation> {
         val text = try {
