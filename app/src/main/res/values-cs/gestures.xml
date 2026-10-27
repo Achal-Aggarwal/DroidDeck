@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Podržení třemi prsty</string>
     <string name="gesture_pinch">Přiblížení sevřením či rozevřením prstů</string>
     <string name="gesture_hold_button">Držet tlačítko stisknuté</string>
+    <string name="gesture_hold_left">Držet levé tlačítko</string>
+    <string name="gesture_hold_right">Držet pravé tlačítko</string>
     <string name="gesture_click_once">Jednou kliknout</string>
     <string name="gesture_hold_delay">Prodleva podržení</string>
     <string name="gesture_double_delay">Interval dvojitého klepnutí</string>

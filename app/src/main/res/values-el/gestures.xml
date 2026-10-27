@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Κράτημα με τρία δάχτυλα</string>
     <string name="gesture_pinch">Μεγέθυνση με τσίμπημα</string>
     <string name="gesture_hold_button">Διατήρηση του κουμπιού πατημένου</string>
+    <string name="gesture_hold_left">Διατήρηση αριστερού κουμπιού πατημένου</string>
+    <string name="gesture_hold_right">Διατήρηση δεξιού κουμπιού πατημένου</string>
     <string name="gesture_click_once">Ένα κλικ</string>
     <string name="gesture_hold_delay">Καθυστέρηση κρατήματος</string>
     <string name="gesture_double_delay">Διάστημα διπλού πατήματος</string>

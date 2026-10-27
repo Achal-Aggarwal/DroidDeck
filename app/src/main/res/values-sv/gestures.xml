@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Håll med tre fingrar</string>
     <string name="gesture_pinch">Nyp för att zooma</string>
     <string name="gesture_hold_button">Håll knappen nedtryckt</string>
+    <string name="gesture_hold_left">Håll vänster knapp nedtryckt</string>
+    <string name="gesture_hold_right">Håll höger knapp nedtryckt</string>
     <string name="gesture_click_once">Klicka en gång</string>
     <string name="gesture_hold_delay">Fördröjning före hållning</string>
     <string name="gesture_double_delay">Intervall för dubbeltryck</string>

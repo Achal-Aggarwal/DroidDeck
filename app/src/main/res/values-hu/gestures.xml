@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Nyomva tartás három ujjal</string>
     <string name="gesture_pinch">Csippentéses nagyítás</string>
     <string name="gesture_hold_button">Gomb nyomva tartása</string>
+    <string name="gesture_hold_left">Bal gomb nyomva tartása</string>
+    <string name="gesture_hold_right">Jobb gomb nyomva tartása</string>
     <string name="gesture_click_once">Egyszeri kattintás</string>
     <string name="gesture_hold_delay">Nyomva tartás késleltetése</string>
     <string name="gesture_double_delay">Dupla koppintás időköze</string>

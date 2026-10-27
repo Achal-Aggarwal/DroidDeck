@@ -583,9 +583,9 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                         stringResource(R.string.ctrl_edit), a.onGestureSettings,
                                         modifier = focus.track(page, "gesture-settings"))
                                     SessionPrefs.TOUCH_DIRECT -> ChoiceRow(host, "long-press", stringResource(R.string.gesture_long_press), null,
-                                        listOf(MOUSE_BEHAVIOR_NONE to stringResource(R.string.widgets_none),
+                                        listOf(MOUSE_BEHAVIOR_NONE to stringResource(R.string.gesture_hold_left),
                                             MOUSE_BEHAVIOR_CLICK to stringResource(R.string.gesture_right_click),
-                                            MOUSE_BEHAVIOR_HOLD to stringResource(R.string.gesture_hold_button)),
+                                            MOUSE_BEHAVIOR_HOLD to stringResource(R.string.gesture_hold_right)),
                                         a.directHoldBehavior, chipModifier = focus.track(page, "long-press"),
                                         onPick = a.onDirectHoldBehavior)
                                 }

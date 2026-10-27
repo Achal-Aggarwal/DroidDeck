@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Tahan dengan tiga jari</string>
     <string name="gesture_pinch">Cubit untuk memperbesar</string>
     <string name="gesture_hold_button">Tetap tekan tombol</string>
+    <string name="gesture_hold_left">Tetap tekan tombol kiri</string>
+    <string name="gesture_hold_right">Tetap tekan tombol kanan</string>
     <string name="gesture_click_once">Klik sekali</string>
     <string name="gesture_hold_delay">Jeda sebelum menahan</string>
     <string name="gesture_double_delay">Interval ketuk dua kali</string>

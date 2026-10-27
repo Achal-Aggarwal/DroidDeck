@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">तीन उँगलियों से दबाए रखना</string>
     <string name="gesture_pinch">पिंच करके ज़ूम करें</string>
     <string name="gesture_hold_button">बटन दबाए रखें</string>
+    <string name="gesture_hold_left">बायाँ बटन दबाए रखें</string>
+    <string name="gesture_hold_right">दायाँ बटन दबाए रखें</string>
     <string name="gesture_click_once">एक बार क्लिक करें</string>
     <string name="gesture_hold_delay">दबाए रखने का विलंब</string>
     <string name="gesture_double_delay">दो टैप के बीच का अंतराल</string>

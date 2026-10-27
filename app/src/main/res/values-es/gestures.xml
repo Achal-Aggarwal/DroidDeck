@@ -14,6 +14,8 @@
     <string name="gesture_three_hold">Pulsación sostenida con tres dedos</string>
     <string name="gesture_pinch">Pellizcar para ampliar</string>
     <string name="gesture_hold_button">Mantener el botón pulsado</string>
+    <string name="gesture_hold_left">Mantener pulsado el botón izquierdo</string>
+    <string name="gesture_hold_right">Mantener pulsado el botón derecho</string>
     <string name="gesture_click_once">Hacer clic una vez</string>
     <string name="gesture_hold_delay">Tiempo de pulsación sostenida</string>
     <string name="gesture_double_delay">Intervalo de doble toque</string>
