@@ -99,11 +99,25 @@ int blendp_draw(VkCommandBuffer c, VkImage s, VkFormat sf, int sw, int sh, int s
 int droiddeck_color_requested(void) { return 0; }
 float droiddeck_color_sdr_white(void) { return 203.0f; }
 
+enum surface_role { ROLE_NONE, ROLE_TOPLEVEL };
+struct damage_list { int n; };
 struct surface {
     struct vkp_image *shm_img;
     struct wl_resource *resource;
     int buf_w, buf_h, buf_alpha, has_content;
+    /* Read by take_shm's game-frame detection; with no damage it stays off here. */
+    int src_set; float src[4];
+    struct damage_list damage_buf, damage_local;
+    struct surface *parent; enum surface_role role; int mapped;
 };
+static void surface_size(const struct surface *s, int *w, int *h) { *w = s->buf_w; *h = s->buf_h; }
+static void scene_size(int *w, int *h) { *w = *h = 0; }
+static int64_t damage_area(const struct damage_list *d, int bound_w, int bound_h) { return 0; }
+static int64_t now_ns(void) { return 0; }
+static struct surface *g_hud_surface, *g_hud_shm;
+static int64_t g_hud_shm_ns, g_hud_last_ns;
+static int g_hud_new;
+static void droiddeck_on_game_frame(void) {}
 struct client_info { int asked_feedback, shm_frames; };
 struct wl_shm_buffer { int w, h, stride; const void *data; };
 #define WL_SHM_FORMAT_ARGB8888 0
