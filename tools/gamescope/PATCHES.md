@@ -122,6 +122,12 @@ app's Wayland-hosted gamescope never reaches, or need a newer gamescope than the
 - `0134-flippable-image-no-backend-modifiers.patch`: when the nested backend offers no modifier at all
   for a flippable image's format, `CVulkanTexture::BInit` tries linear and logs it instead of asserting
   `!modifiers.empty()`. NieR Replicant ended the session there on a Pixel 9a under Venus.
+- `0135-flippable-image-linear-when-driver-rejects-all.patch`: when the driver answers every offered
+  modifier with `VK_ERROR_FORMAT_NOT_SUPPORTED` and linear was among them, the flippable image tries
+  linear anyway; if it cannot be made, `BInit` fails as before. An r32p1 Mali-G610 (Vulkan 1.1) behind
+  the Mali bridge rejected both of the backend's modifiers for AR24, so the session ended at start
+  (0133's "no usable modifier"); the bridge makes such images without the handle type and exports
+  them through a dma-heap.
 
 The shared DroidDeck patch also includes `0116-release-cursor-shm-buffers.patch`: pointer cursor
 surfaces have no X11/xdg window association, so routing their commits through `g_PendingCommits`
