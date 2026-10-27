@@ -2870,6 +2870,7 @@ static void pointer_input(double x, double y, int relative, uint32_t button, int
             if (button && !pressed) g_grab = NULL;
         }
     }
+    publish_query_state();
     if (!target) return;
 
     struct wl_client *client = wl_resource_get_client(target->resource);
@@ -2901,7 +2902,6 @@ static void pointer_input(double x, double y, int relative, uint32_t button, int
         droiddeck_text_input_refocus();
     }
     wl_display_flush_clients(g_display);
-    publish_query_state();
 }
 
 static void pointer_event(double x, double y, uint32_t button, int pressed) {
