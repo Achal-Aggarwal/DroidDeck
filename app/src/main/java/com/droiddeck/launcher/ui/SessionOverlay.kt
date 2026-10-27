@@ -574,7 +574,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                                 ChoiceRow(host, "touch", stringResource(R.string.mode_touch), null,
                                     listOf(SessionPrefs.TOUCH_AUTO to stringResource(R.string.drawer_touch_auto, a.touchAuto), SessionPrefs.TOUCH_PAD to stringResource(R.string.mode_touch_touchpad), SessionPrefs.TOUCH_DIRECT to stringResource(R.string.mode_touch_direct), SessionPrefs.TOUCH_GESTURES to stringResource(R.string.mode_touch_gestures), SessionPrefs.TOUCH_OFF to stringResource(R.string.widgets_off)),
                                     a.touchMode, chipModifier = focus.track(page, "touch"), onPick = a.onTouch)
-                                if (a.touchMode == SessionPrefs.TOUCH_DIRECT || a.touchMode == SessionPrefs.TOUCH_AUTO)
+                                if (a.touchActive == SessionPrefs.TOUCH_DIRECT)
                                     ToggleRow(host, "direct-cursor", stringResource(R.string.drawer_direct_cursor),
                                         null, a.directCursor,
                                         chipModifier = focus.track(page, "direct-cursor"), onChange = a.onDirectCursor)
