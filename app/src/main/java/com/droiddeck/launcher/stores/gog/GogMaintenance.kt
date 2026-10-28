@@ -84,10 +84,11 @@ internal object GogMaintenance {
     fun offlinePatches(context: Context, game: InstalledStoreGame): List<GogOfflineDownload> =
         GogOfflineDownload.parse(GogContent.product(game.sidecar.id, GogContent.token(context)).getJSONObject("downloads"), "patches")
 
-    private fun offlineInstaller(downloads: JSONObject, language: String): GogOfflineDownload {
+    internal fun offlineInstaller(downloads: JSONObject, language: String): GogOfflineDownload {
         val installers = GogOfflineDownload.parse(downloads, "installers")
-        return installers.firstOrNull { GogContent.languageSelected(listOf(it.language), language) }
-            ?: installers.firstOrNull() ?: error("No Windows offline installer is available")
+        return installers.firstOrNull { it.language.equals(language, true) }
+            ?: installers.firstOrNull { it.language.equals("Neutral", true) || StoreLanguage.depotAccepted(arrayOf(it.language), language) }
+            ?: error("No Windows offline installer is available for the installed language ($language)")
     }
 
     fun prepare(context: Context, game: InstalledStoreGame, operation: GogOperation, patch: GogOfflineDownload? = null, resume: Boolean = false): Proposal {

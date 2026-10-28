@@ -22,14 +22,13 @@ internal object GogOffline {
 
     internal fun layout(extracted: File, installed: File, id: String, executable: String): Layout {
         val nested = executable.startsWith("app/", true) && !File(installed, "goggame-$id.info").isFile
-        val app = File(extracted, "app")
-        return if (app.isDirectory) Layout(if (nested) extracted else app, "") else Layout(extracted, if (nested) "app/" else "")
+        return Layout(extracted, if (nested) "app/" else "")
     }
 
     internal fun validateDepotInstaller(extracted: File, target: GogInstallRecord) {
         if (target.source != "depot") return
-        val content = File(extracted, "app").takeIf { it.isDirectory } ?: extracted
-        require(GogInstallRecord.authenticBuild(content, target.id) == target.build && target.build.isNotBlank()) {
+        val builds = listOf(extracted, File(extracted, "app")).map { GogInstallRecord.authenticBuild(it, target.id) }.filter { it.isNotBlank() }
+        require(builds.isNotEmpty() && builds.all { it == target.build } && target.build.isNotBlank()) {
             "The offline installer does not identify the selected depot build. Use Update to preserve installed DLC."
         }
     }
@@ -85,16 +84,25 @@ internal object GogOffline {
         val layout = layout(extracted, proposal.folder, proposal.before.id, sidecar.exe)
         val files = layout.source.walkTopDown().onEnter { directory ->
             check(!java.nio.file.Files.isSymbolicLink(directory.toPath())) { "GOG installer contains a symbolic link" }
-            layout.source != extracted || directory.parentFile != extracted || directory.name !in setOf("tmp", "commonappdata", "userappdata", "localappdata")
-        }.filter { it != layout.source }.map { file ->
+            directory.parentFile != extracted || directory.name !in setOf("tmp", "commonappdata", "userappdata", "localappdata")
+        }.filter { it != layout.source && it != File(extracted, "app") }.map { file ->
             check(!java.nio.file.Files.isSymbolicLink(file.toPath()))
-            JSONObject().put("path", layout.prefix + file.relativeTo(layout.source).invariantSeparatorsPath)
+            val relative = file.relativeTo(layout.source).invariantSeparatorsPath.removePrefix("app/")
+            JSONObject().put("path", layout.prefix + relative)
                 .put("size", if (file.isDirectory) 0 else file.length()).put("directory", file.isDirectory)
                 .put("md5", if (file.isDirectory) "" else GogFiles.hash(file)).put("product", proposal.before.id) to file
-        }.toList()
+        }.toList().groupBy { it.first.getString("path") }.map { (_, entries) ->
+            check(entries.size == 1 || entries.all { it.first.getBoolean("directory") }) { "GOG installer has conflicting file locations" }
+            entries.first()
+        }
         check(files.any { !it.first.getBoolean("directory") }) { "GOG installer contained no game files" }
         val inventory = JSONArray(files.map { it.first })
         GogFiles.validate(inventory, proposal.folder)
+        val executable = sidecar.exe.replace('\\', '/')
+        check(files.any { !it.first.getBoolean("directory") && it.first.getString("path").equals(executable, true) } ||
+            proposal.before.files.objects().none { it.getString("path").equals(executable, true) } && GogFiles.inside(proposal.folder, executable).isFile) {
+            "The offline installer did not extract the game's executable. No installed files were changed."
+        }
         val installed = proposal.target.copy(files = inventory)
         GogFiles.write(File(GogFiles.dir(proposal.folder), "refresh-target.json"), installed.json())
         for ((index, entry) in files.withIndex()) {

@@ -59,7 +59,13 @@ Setup runs the script interpreter only when an actual GOG script exists, and
 registers the authentic installation path, version, and build in the selected
 prefix. Patch filenames are decoded from provider URLs without changing literal
 plus signs or multipart names. Offline refresh retains the existing executable
-layout and includes empty files and directories.
+layout and includes empty files and directories. Installers can put payload files
+at the extraction root while placing placeholders under `app/`; refresh combines
+both locations and verifies the selected executable before changing installed
+files. Installer language selection accepts the installed locale's base language
+and never silently chooses an unrelated language. Refresh with selected DLC also
+requires authentic matching depot metadata and completes the selected depots
+before publishing the installed record or deleting obsolete content.
 
 Short helper status requests detect a dead installer owner or abandoned start.
 Session loss or suspension requires recovery; it never triggers automatic replay.

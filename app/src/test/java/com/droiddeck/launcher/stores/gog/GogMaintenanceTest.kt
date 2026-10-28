@@ -81,13 +81,63 @@ class GogMaintenanceTest {
         val app = File(extracted, "app").apply { mkdirs() }
         File(app, "game.exe").writeText("replacement")
         File(installed, "goggame-1.info").writeText("{}")
-        assertEquals(app, GogOffline.layout(extracted, installed, "1", "game.exe").source)
+        assertEquals(extracted, GogOffline.layout(extracted, installed, "1", "game.exe").source)
+        assertEquals("", GogOffline.layout(extracted, installed, "1", "game.exe").prefix)
         File(installed, "goggame-1.info").delete()
         assertEquals(extracted, GogOffline.layout(extracted, installed, "1", "app/game.exe").source)
         val flat = temporary.newFolder()
         val legacy = GogOffline.layout(flat, installed, "1", "app/game.exe")
         assertEquals(flat, legacy.source)
         assertEquals("app/", legacy.prefix)
+    }
+
+    @Test fun offlineInstallerMatchesRegionalLanguageWithoutChoosingAnotherLanguage() {
+        val downloads = JSONObject("""{"installers":[
+          {"id":"de","os":"windows","language":"de","files":[{"downlink":"https://example.invalid/de"}]},
+          {"id":"en","os":"windows","language":"en","files":[{"downlink":"https://example.invalid/en"}]}]}""")
+        assertEquals("en", GogMaintenance.offlineInstaller(downloads, "en-US").id)
+        assertThrows(IllegalStateException::class.java) { GogMaintenance.offlineInstaller(downloads, "pl-PL") }
+    }
+
+    @Test fun incompleteOfflineExtractionCannotReplaceOrRemoveInstalledFiles() {
+        val folder = temporary.newFolder()
+        StoreGameSidecar(Store.GOG, "1", "Game", "game.exe").write(folder)
+        val game = File(folder, "game.exe").apply { writeText("installed game") }
+        val old = GogInstallRecord("1", "depot", files = JSONArray().put(JSONObject().put("path", game.name)
+            .put("size", game.length()).put("md5", GogFiles.hash(game))))
+        old.write(folder)
+        val extracted = temporary.newFolder()
+        File(extracted, "goggame-1.ico").writeText("ancillary file")
+        assertThrows(IllegalStateException::class.java) {
+            GogOffline.applyRefresh(GogMaintenance.Proposal(folder, old, old.copy(source = "offline"), GogOperation.REFRESH, 0, 0), extracted, null, AtomicBoolean(false))
+        }
+        assertEquals("installed game", game.readText())
+        assertFalse(File(folder, "goggame-1.ico").exists())
+        assertEquals("depot", GogInstallRecord.read(folder)!!.source)
+    }
+
+    @Test fun offlineRefreshCombinesRootPayloadAndAppPlaceholdersInBothLayouts() {
+        for (nested in listOf(false, true)) {
+            val folder = temporary.newFolder()
+            val executable = if (nested) "app/game.exe" else "game.exe"
+            StoreGameSidecar(Store.GOG, "1", "Game", executable).write(folder)
+            val game = File(folder, executable).apply { parentFile!!.mkdirs(); writeText("old game") }
+            val old = GogInstallRecord("1", "offline", files = JSONArray().put(JSONObject().put("path", executable)
+                .put("size", game.length()).put("md5", GogFiles.hash(game))))
+            old.write(folder)
+            val extracted = temporary.newFolder()
+            File(extracted, "game.exe").writeText("complete new game")
+            File(extracted, "Data").mkdirs()
+            File(extracted, "app/Data/SaveGame").mkdirs()
+            File(extracted, "app/Data/SaveGame/dummy.txt").writeBytes(byteArrayOf())
+            File(extracted, "tmp").mkdirs()
+            File(extracted, "tmp/installer.exe").writeText("installer support")
+            GogOffline.applyRefresh(GogMaintenance.Proposal(folder, old, old, GogOperation.REFRESH, 0, 0), extracted, null, AtomicBoolean(false))
+            assertEquals("complete new game", game.readText())
+            assertTrue(File(folder, (if (nested) "app/" else "") + "Data/SaveGame/dummy.txt").isFile)
+            assertFalse(File(folder, "tmp").exists())
+            assertTrue(GogInstallRecord.read(folder)!!.files.objects().any { it.getString("path") == executable })
+        }
     }
 
     @Test fun offlineRefreshDefersDlcCleanupAndRecordPublicationUntilDepotCompletion() {
