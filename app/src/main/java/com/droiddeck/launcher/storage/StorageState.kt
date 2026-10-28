@@ -140,6 +140,11 @@ object StorageState {
         FileOps.delete(dir)
     })
 
+    fun resetPrefix(context: Context, appId: Int, x64: Boolean = false) = act(context, "prefix-$appId", { _, fresh ->
+        val dir = fresh.games.firstOrNull { it.appId == appId && it.x64 == x64 }?.prefixDir ?: return@act false
+        FileOps.delete(dir)
+    })
+
     fun removeLeftover(context: Context, l: Leftover) = act(context, "leftover-${l.appId}", { _, fresh ->
         val leftover = fresh.leftovers.firstOrNull { it.appId == l.appId && it.prefix?.path == l.prefix?.path && it.shaders?.path == l.shaders?.path }
             ?: return@act false

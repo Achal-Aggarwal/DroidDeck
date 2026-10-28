@@ -846,6 +846,7 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
     val ctx = LocalContext.current
     val busy = sessionRunning || StorageState.cleaning
     var confirm by remember { mutableStateOf<com.droiddeck.launcher.storage.Leftover?>(null) }
+    var confirmPrefix by remember { mutableStateOf<com.droiddeck.launcher.storage.GameUsage?>(null) }
     SubHeader(stringResource(R.string.storage_game_data), stringResource(R.string.storage_game_data_hint, gb(report.prefixes), gb(report.workshop), gb(report.shaders)), onBack)
     ActionStatus()
     if (sessionRunning) { Note(stringResource(R.string.storage_session_running)); Spacer(Modifier.height(4.dp)) }
@@ -856,7 +857,12 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
         games.forEachIndexed { i, g ->
             ItemRow(
                 gameName(g), stringResource(R.string.storage_data_parts, gb(g.prefix), gb(g.shaders), gb(g.workshop)), g.data, i == games.lastIndex,
-                action = { SecondaryButton(stringResource(R.string.storage_clear_shaders), compact = true, enabled = !busy && g.shaders >= ONE_MB) { StorageState.clearShaders(ctx, g.appId, g.x64) } },
+                action = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SecondaryButton(stringResource(R.string.storage_clear_shaders), compact = true, enabled = !busy && g.shaders >= ONE_MB) { StorageState.clearShaders(ctx, g.appId, g.x64) }
+                        SecondaryButton(stringResource(R.string.storage_reset_prefix), compact = true, enabled = !busy && g.prefix >= ONE_MB) { confirmPrefix = g }
+                    }
+                },
             )
         }
     }
@@ -887,6 +893,13 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
     if (report.otherPrefixes > 0) {
         SectionTitle(stringResource(R.string.storage_data_other), null)
         ListCard { ItemRow(stringResource(R.string.storage_data_other_title), stringResource(R.string.storage_data_other_detail), report.otherPrefixes, true) }
+    }
+    confirmPrefix?.let { g ->
+        ConfirmDialog(
+            stringResource(R.string.storage_reset_prefix_title, gameName(g)),
+            stringResource(R.string.storage_reset_prefix_confirm, gb(g.prefix)), stringResource(R.string.storage_reset_prefix),
+            onConfirm = { StorageState.resetPrefix(ctx, g.appId, g.x64) }, onDismiss = { confirmPrefix = null },
+        )
     }
     confirm?.let { l ->
         ConfirmDialog(
