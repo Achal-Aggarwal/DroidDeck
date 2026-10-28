@@ -5,11 +5,23 @@ for (var i = 0; i < desktops.length; i++) {
     desktops[i].writeConfig("Image", "file:///usr/share/wallpapers/DroidDeck");
 }
 
-var panel = new Panel;
-panel.location = "bottom";
-panel.height = 2 * Math.ceil(gridUnit * 2.5 / 2);
+var dock = new Panel;
+dock.location = "left";
+dock.height = 2 * Math.ceil(gridUnit * 2.75 / 2);
 
-var kickoff = panel.addWidget("org.kde.plasma.kickoff");
+var tasks = dock.addWidget("org.kde.plasma.icontasks");
+tasks.currentConfigGroup = ["General"];
+tasks.writeConfig("launchers", [
+    "applications:steamdeck-steam.desktop",
+    "preferred://filemanager",
+    "preferred://browser",
+    "applications:org.kde.konsole.desktop",
+    "applications:org.kde.kate.desktop",
+]);
+tasks.writeConfig("fill", false);
+dock.addWidget("org.kde.plasma.panelspacer");
+
+var kickoff = dock.addWidget("org.kde.plasma.kickoff");
 kickoff.currentConfigGroup = ["Shortcuts"];
 kickoff.writeConfig("global", "Alt+F1");
 kickoff.currentConfigGroup = ["General"];
@@ -23,27 +35,21 @@ kickoff.writeConfig("favorites", [
     "applications:systemsettings.desktop",
 ]);
 
-panel.addWidget("org.kde.plasma.pager");
-
-var tasks = panel.addWidget("org.kde.plasma.icontasks");
-tasks.currentConfigGroup = ["General"];
-tasks.writeConfig("launchers", [
-    "applications:steamdeck-steam.desktop",
-    "preferred://filemanager",
-    "preferred://browser",
-    "applications:org.kde.konsole.desktop",
-    "applications:org.kde.kate.desktop",
-]);
-
-panel.addWidget("org.kde.plasma.marginsseparator");
-var tray = panel.addWidget("org.kde.plasma.systemtray");
+var bar = new Panel;
+bar.location = "top";
+bar.height = 2 * Math.ceil(gridUnit * 1.6 / 2);
+bar.addWidget("org.kde.plasma.pager");
+bar.addWidget("org.kde.plasma.panelspacer");
+var clock = bar.addWidget("org.kde.plasma.digitalclock");
+clock.currentConfigGroup = ["Appearance"];
+clock.writeConfig("dateFormat", "isoDate");
+clock.writeConfig("showDate", true);
+bar.addWidget("org.kde.plasma.panelspacer");
+var tray = bar.addWidget("org.kde.plasma.systemtray");
 var trayId = tray.readConfig("SystrayContainmentId");
 if (trayId) {
     var trayContainment = desktopById(trayId);
     trayContainment.currentConfigGroup = ["General"];
     trayContainment.writeConfig("scaleIconsToFit", true);
 }
-var clock = panel.addWidget("org.kde.plasma.digitalclock");
-clock.currentConfigGroup = ["Appearance"];
-clock.writeConfig("dateFormat", "isoDate");
-panel.addWidget("org.kde.plasma.showdesktop");
+bar.addWidget("org.kde.plasma.showdesktop");
