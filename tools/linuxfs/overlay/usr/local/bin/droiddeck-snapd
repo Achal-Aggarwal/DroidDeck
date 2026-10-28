@@ -215,9 +215,9 @@ def write_desktop(name, rev, meta):
     os.makedirs(DESKTOP_DIR, exist_ok=True)
     gui = f"{SNAP_DIR}/{name}/{rev}/meta/gui"
     apps = (meta.get("apps") or {})
-    for app in apps:
+    for app, spec in apps.items():
         source = os.path.join(gui, f"{app}.desktop")
-        if not os.path.isfile(source):
+        if (spec or {}).get("daemon") or not os.path.isfile(source):
             continue
         command = name if app == name else f"{name}.{app}"
         out = []
@@ -313,11 +313,15 @@ def remove_one(name, state):
         raise RuntimeError(f"snap \"{name}\" is not installed")
     for app in entry.get("apps", []):
         command = name if app == name else f"{name}.{app}"
-        for path in (os.path.join(BIN_DIR, command), f"{DESKTOP_DIR}/{name}_{app}.desktop"):
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+        try:
+            os.unlink(os.path.join(BIN_DIR, command))
+        except OSError:
+            pass
+    if os.path.isdir(DESKTOP_DIR):
+        for f in os.listdir(DESKTOP_DIR):
+            if f.startswith(name + "_") and f.endswith(".desktop"):
+                os.unlink(os.path.join(DESKTOP_DIR, f))
+        subprocess.run(["update-desktop-database", DESKTOP_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     shutil.rmtree(f"{SNAP_DIR}/{name}", ignore_errors=True)
     for f in os.listdir(f"{LIB}/snaps"):
         if f.startswith(name + "_"):
