@@ -738,10 +738,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BUILD_OUTCOME: ${{ needs.build.outputs.build }}
-          UNIT_TEST_OUTCOME: ${{ needs.unit-tests.outputs.outcome }}
+          BUILD_OUTCOME: ${{ needs.build.outputs.build || needs.build.result }}
+          UNIT_TEST_OUTCOME: ${{ needs.unit-tests.outputs.outcome || needs.unit-tests.result }}
           TEST_DIAGNOSTICS_URL: ${{ needs.unit-tests.outputs.diagnostics }}
-          APK_OUTCOME: ${{ needs.build.outputs.apk }}
+          APK_OUTCOME: ${{ needs.build.outputs.apk || needs.build.result }}
         run: bash tools/release/report-build.sh
 
   python-tests:
