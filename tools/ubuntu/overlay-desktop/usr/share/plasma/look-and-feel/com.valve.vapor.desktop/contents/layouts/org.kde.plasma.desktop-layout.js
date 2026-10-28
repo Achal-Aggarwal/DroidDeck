@@ -6,20 +6,8 @@ for (var i = 0; i < desktops.length; i++) {
 }
 
 var dock = new Panel;
-dock.location = "left";
-dock.height = 2 * Math.ceil(gridUnit * 2.75 / 2);
-
-var tasks = dock.addWidget("org.kde.plasma.icontasks");
-tasks.currentConfigGroup = ["General"];
-tasks.writeConfig("launchers", [
-    "applications:steamdeck-steam.desktop",
-    "preferred://filemanager",
-    "preferred://browser",
-    "applications:org.kde.konsole.desktop",
-    "applications:org.kde.kate.desktop",
-]);
-tasks.writeConfig("fill", false);
-dock.addWidget("org.kde.plasma.panelspacer");
+dock.location = "bottom";
+dock.height = 2 * Math.ceil(gridUnit * 2.5 / 2);
 
 var kickoff = dock.addWidget("org.kde.plasma.kickoff");
 kickoff.currentConfigGroup = ["Shortcuts"];
@@ -33,6 +21,16 @@ kickoff.writeConfig("favorites", [
     "applications:org.kde.kate.desktop",
     "applications:org.kde.discover.desktop",
     "applications:systemsettings.desktop",
+]);
+
+var tasks = dock.addWidget("org.kde.plasma.icontasks");
+tasks.currentConfigGroup = ["General"];
+tasks.writeConfig("launchers", [
+    "applications:steamdeck-steam.desktop",
+    "preferred://filemanager",
+    "preferred://browser",
+    "applications:org.kde.konsole.desktop",
+    "applications:org.kde.kate.desktop",
 ]);
 
 var bar = new Panel;
