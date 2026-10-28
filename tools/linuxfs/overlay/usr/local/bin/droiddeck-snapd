@@ -254,6 +254,17 @@ def link_bins(name, meta):
     return apps
 
 
+def remove_tree(top):
+    if os.path.isdir(top) and not os.path.islink(top):
+        os.chmod(top, 0o700)
+        for root, dirs, _ in os.walk(top):
+            for d in dirs:
+                path = os.path.join(root, d)
+                if not os.path.islink(path):
+                    os.chmod(path, 0o700)
+    shutil.rmtree(top, ignore_errors=True)
+
+
 def install_one(cid, name, channel, state, parents=()):
     if name in state["snaps"] or name in parents:
         return
@@ -273,7 +284,7 @@ def install_one(cid, name, channel, state, parents=()):
     download(cid, name, d["url"], d.get("sha3-384"), d.get("size", 0), blob)
     progress(cid, f"Unpack snap \"{name}\"", 0, 1)
     target = f"{SNAP_DIR}/{name}/{number}"
-    shutil.rmtree(target, ignore_errors=True)
+    remove_tree(target)
     os.makedirs(os.path.dirname(target), exist_ok=True)
     r = root_run(["unsquashfs", "-q", "-n", "-no-xattrs", "-f", "-excludes", "-d", target, blob, "dev"])
     if r.returncode != 0:
@@ -322,7 +333,7 @@ def remove_one(name, state):
             if f.startswith(name + "_") and f.endswith(".desktop"):
                 os.unlink(os.path.join(DESKTOP_DIR, f))
         subprocess.run(["update-desktop-database", DESKTOP_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    shutil.rmtree(f"{SNAP_DIR}/{name}", ignore_errors=True)
+    remove_tree(f"{SNAP_DIR}/{name}")
     for f in os.listdir(f"{LIB}/snaps"):
         if f.startswith(name + "_"):
             os.unlink(os.path.join(f"{LIB}/snaps", f))
