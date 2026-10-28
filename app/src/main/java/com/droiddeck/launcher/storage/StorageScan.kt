@@ -176,7 +176,7 @@ object StorageScan {
                 if (!m.installed) continue
                 val gameBytes = dir?.let { File(lib.root, "steamapps/common/$it") }?.takeIf { it.isDirectory }?.let { walker.measure(it) } ?: 0
                 val prefixDir = sequenceOf(lib.data, lib.root).map { File(it, "steamapps/compatdata/${m.appId}") }.firstOrNull { it.isDirectory }
-                val prefix = File(lib.data, "steamapps/compatdata/${m.appId}").takeIf { it.isDirectory }?.let { walker.measure(it) } ?: 0
+                val prefix = prefixDir?.let { walker.measure(it) } ?: 0
                 val shaderDir = File(lib.data, "steamapps/shadercache/${m.appId}").takeIf { it.isDirectory }
                 val shaders = shaderDir?.let { walker.measure(it) } ?: 0
                 val workshop = File(lib.root, "steamapps/workshop/content/${m.appId}").takeIf { it.isDirectory }?.let { walker.measure(it) } ?: 0
