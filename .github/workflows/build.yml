@@ -741,7 +741,7 @@ jobs:
           BUILD_OUTCOME: ${{ needs.build.outputs.build || needs.build.result }}
           UNIT_TEST_OUTCOME: ${{ needs.unit-tests.result }}
           TEST_DIAGNOSTICS_URL: ${{ needs.unit-tests.outputs.diagnostics }}
-          APK_OUTCOME: ${{ needs.build.outputs.apk || needs.build.result }}
+          APK_OUTCOME: ${{ needs.build.result == 'success' && needs.build.outputs.apk || needs.build.result }}
         run: bash tools/release/report-build.sh
 
   python-tests:
