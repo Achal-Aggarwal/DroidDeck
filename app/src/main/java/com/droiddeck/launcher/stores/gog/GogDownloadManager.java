@@ -352,7 +352,12 @@ public final class GogDownloadManager {
             if (manifestStr == null) { out.error = "manifest decompress failed"; return out; }
             JSONObject manifest = new JSONObject(manifestStr);
             if (manifest.has("product")) {
-                out.result = GogMaintenance.installContent(ctx, game, installPath, builds, language, cb, cancelled);
+                try {
+                    out.result = GogMaintenance.installContent(ctx, game, installPath, builds, language, cb, cancelled);
+                    if (out.result == null && !cancelled.get()) out.error = "no usable public Windows build";
+                } catch (Exception e) {
+                    out.error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                }
                 return out;
             }
             JSONArray depots = manifest.optJSONArray("depot");
