@@ -66,6 +66,20 @@ EOF
   rm -rf "$pkg" "$pkg.files" "/tmp/$name.deb"
 }
 
+install_turnip() {
+  local multiarch=/usr/lib/aarch64-linux-gnu work
+  source "$here/base.env"
+  work=$(mktemp -d)
+  curl -fsSL --proto '=https' --proto-redir '=https' --retry 6 --retry-delay 5 --retry-all-errors -o "$work/turnip.zip" "$DD_TURNIP_URL"
+  echo "$DD_TURNIP_SHA256  $work/turnip.zip" | sha256sum -c - >/dev/null
+  unzip -q "$work/turnip.zip" -d "$work/turnip"
+  dpkg-divert --package droiddeck-runtime --rename --divert "$multiarch/libvulkan_freedreno.so.distrib" --add "$multiarch/libvulkan_freedreno.so"
+  install -m 644 "$work/turnip/linux/libvulkan_freedreno.so" "$multiarch/libvulkan_freedreno.so"
+  mkdir -p /usr/share/licenses/dd-turnip
+  cp -r "$work/turnip/LICENSES" "$work/turnip/NOTICE" "$work/turnip/linux/meta.json" /usr/share/licenses/dd-turnip/
+  rm -rf "$work"
+}
+
 divert_to() {
   local path=$1 target=$2 owner=$3
   [ -e "$path" ] || [ -L "$path" ] || return 0
@@ -119,6 +133,7 @@ if [ "$stage" = runtime ]; then
   multiarch=/usr/lib/aarch64-linux-gnu
   ln -sf liblua5.4.so.0 "$multiarch/liblua.so.5.4"
   divert_to "$multiarch/gamescope/libVkLayer_FROG_gamescope_wsi_aarch64.so" ../../libVkLayer_FROG_gamescope_wsi_aarch64.so droiddeck-runtime
+  install_turnip
 
   mkdir -p /var/cache/droiddeck-flatpak /usr/share/droiddeck/apt /etc/droiddeck/proc /etc/droiddeck/empty /root/Desktop
   touch /var/cache/droiddeck-flatpak/installed
