@@ -897,7 +897,7 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
     confirmPrefix?.let { g ->
         ConfirmDialog(
             stringResource(R.string.storage_reset_prefix_title, gameName(g)),
-            stringResource(R.string.storage_reset_prefix_confirm, gb(g.prefix)), stringResource(R.string.storage_reset_prefix),
+            stringResource(R.string.storage_reset_prefix_confirm, gb(g.prefix), g.library), stringResource(R.string.storage_reset_prefix),
             onConfirm = { StorageState.resetPrefix(ctx, g) }, onDismiss = { confirmPrefix = null },
         )
     }

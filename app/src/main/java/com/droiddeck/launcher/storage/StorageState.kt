@@ -142,7 +142,7 @@ object StorageState {
 
     fun resetPrefix(context: Context, game: GameUsage) = act(context, "prefix-${game.appId}", { _, fresh ->
         val dir = fresh.games.firstOrNull { it.appId == game.appId && it.x64 == game.x64 && it.prefixDir?.path == game.prefixDir?.path }
-            ?.prefixDir ?: return@act false
+            ?.prefixDir ?: error("prefix not found")
         check(FileOps.delete(dir)) { "cannot delete $dir" }
         true
     })
