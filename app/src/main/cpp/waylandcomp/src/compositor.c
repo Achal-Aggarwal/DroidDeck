@@ -265,6 +265,9 @@ static int g_dirty;
 static int64_t g_dirty_since_ns;
 volatile int g_render_on_commit = 1;
 static int64_t g_rendered_tick_ns;
+static int g_tick_held;
+static int64_t g_hold_missed_ns;
+#define HOLD_RETRY_NS 1000000000LL
 #define PACE_BUFFERS 32
 static struct {
     unsigned ticks, ticks_late_2ms, renders, commit_renders, null_attaches, reattaches, presented, replaced, undrawn, distinct;
@@ -2136,6 +2139,7 @@ static void render_scene(void) {
     }
     g_dirty = 0;
     g_rendered_tick_ns = g_tick_vsync_ns;
+    g_tick_held = 0;
     g_hud_fresh = 0;
     g_hdr_unimported = NULL;
     wl_list_for_each(s, &g_surfaces, link) s->drawn = 0;
@@ -2334,7 +2338,7 @@ static int scene_waits_for_game(int64_t now) {
 
 static void on_commit_idle(void *data) {
     g_render_idle = NULL;
-    if (!g_dirty || g_rendered_tick_ns == g_tick_vsync_ns || scene_waits_for_game(now_ns())) return;
+    if (!g_dirty || !commit_renders_on() || g_rendered_tick_ns == g_tick_vsync_ns || scene_waits_for_game(now_ns())) return;
     g_pace.commit_renders++;
     render_scene();
 }
@@ -2361,8 +2365,16 @@ static void on_vsync(int64_t frame_time_ns) {
     if (vkp_cardboard_pose_changed()) tick_change = 1;
     if (tick_change) g_dirty = 1;
     /* A frame that arrived after this refresh was already drawn is left for the next arrival to draw;
-       drawing it here would block that arrival too and keep every frame waiting for the tick. */
-    if (!tick_change && commit_renders_on() && g_dirty_since_ns && now - g_dirty_since_ns < g_refresh_ns) return;
+       drawing it here would block that arrival too and keep every frame waiting for the tick. A client
+       that draws again only after its frame callback sends no such arrival: once a held frame is still
+       waiting at the next tick, the tick draws every frame for a second before holding one again. */
+    if (g_tick_held && g_dirty) g_hold_missed_ns = now;
+    g_tick_held = 0;
+    if (!tick_change && commit_renders_on() && g_dirty_since_ns && now - g_dirty_since_ns < g_refresh_ns &&
+        now - g_hold_missed_ns >= HOLD_RETRY_NS) {
+        g_tick_held = 1;
+        return;
+    }
     if (g_dirty && !scene_waits_for_game(now)) render_scene();
 }
 

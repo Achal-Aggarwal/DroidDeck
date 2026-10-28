@@ -26,6 +26,9 @@ static struct wl_event_source *g_render_idle, *g_fallback_timer;
 static int g_fallback_armed, g_dirty, g_hud_fresh, framegen;
 static void *g_hud_surface;
 static int64_t g_dirty_since_ns, g_last_vsync_ns, g_tick_vsync_ns, g_hud_last_ns, g_rendered_tick_ns;
+static int g_tick_held;
+static int64_t g_hold_missed_ns;
+#define HOLD_RETRY_NS 1000000000LL
 static int64_t g_refresh_ns = 16666667;
 volatile int g_render_on_commit = 1;
 volatile int g_release_unpaced = 1;
@@ -43,7 +46,7 @@ static int vkp_framegen_active(void) { return framegen; }
 static int vkp_apply_window_request(void) { return window_requests; }
 static int vkp_effects_sync(void) { return effects_changes; }
 static int vkp_cardboard_pose_changed(void) { return pose_changes; }
-static void render_scene(void) { renders++; g_dirty = 0; g_dirty_since_ns = 0; g_rendered_tick_ns = g_tick_vsync_ns; }
+static void render_scene(void) { renders++; g_dirty = 0; g_dirty_since_ns = 0; g_rendered_tick_ns = g_tick_vsync_ns; g_tick_held = 0; }
 static int on_fallback_timer(void *data) { return 0; }
 static void on_commit_idle(void *data);
 '''
@@ -62,6 +65,8 @@ static void arrive(int64_t after_ns) { clock_ns += after_ns; schedule_render(); 
 int main(void) {
     const int64_t refresh = 6944444, ms = 1000000;
     int64_t t = 1000000000LL;
+    int r0;
+    unsigned c0;
     g_refresh_ns = refresh;
     tick(t);
     assert(renders == 0);
@@ -76,11 +81,11 @@ int main(void) {
     arrive(1 * ms);
     assert(idles_added == 1);
     tick(t += refresh);
-    assert(renders == 1);
+    assert(renders == 1 && g_tick_held == 1);
     arrive(2 * ms);
     assert(idles_added == 2);
     run_idle();
-    assert(renders == 2 && g_pace.commit_renders == 2);
+    assert(renders == 2 && g_pace.commit_renders == 2 && g_tick_held == 0);
 
     /* a frame no other frame follows is drawn at the tick after next */
     arrive(1 * ms);
@@ -89,35 +94,83 @@ int main(void) {
     tick(t += refresh);
     assert(renders == 3 && g_pace.commit_renders == 2);
 
-    /* one frame per refresh, starting right after a tick draw, settles on drawing every frame when it arrives */
+    /* after that, the tick draws every frame for a second, then holds one again */
+    arrive(1 * ms);
+    tick(t += refresh);
+    assert(renders == 4 && g_tick_held == 0);
+    t += HOLD_RETRY_NS;
+    tick(t);
+    arrive(1 * ms);
+    run_idle();
+    arrive(1 * ms);
+    tick(t += refresh);
+    assert(renders == 5 && g_tick_held == 1);
     arrive(2 * ms);
-    assert(idles_added == 2);
+    run_idle();
+    assert(renders == 6 && g_pace.commit_renders == 4);
+
+    /* one frame per refresh, starting right after a tick draw, settles on drawing every frame when it arrives */
+    window_requests = 1;
+    tick(t += refresh);
+    window_requests = 0;
+    arrive(2 * ms);
+    r0 = renders; c0 = g_pace.commit_renders;
     for (int i = 0; i < 10; i++) {
         tick(t += refresh);
         arrive(2 * ms);
         run_idle();
     }
-    assert(renders == 13 && g_pace.commit_renders == 12);
+    assert(renders - r0 == 10 && g_pace.commit_renders - c0 == 10);
+
+    /* a client that draws again only after its frame callback (sent when the scene is drawn) keeps one frame
+       per refresh: two held frames in 200 refreshes, about 1.4 s */
+    r0 = renders; c0 = g_pace.commit_renders;
+    {
+        int seen = renders - 1;
+        for (int i = 0; i < 200; i++) {
+            if (renders != seen) { seen = renders; arrive(1 * ms); run_idle(); }
+            tick(t += refresh);
+        }
+    }
+    assert(renders - r0 == 198 && g_pace.commit_renders == c0);
 
     /* a window, effect or headset change at the tick draws the waiting frame now */
+    t += HOLD_RETRY_NS;
+    tick(t);
+    arrive(1 * ms);
+    run_idle();
+    r0 = renders;
     arrive(1 * ms);
     window_requests = 1;
     tick(t += refresh);
     window_requests = 0;
-    assert(renders == 14 && g_pace.commit_renders == 12);
+    assert(renders - r0 == 1 && g_tick_held == 0);
 
     /* a draw queued before the tick still draws the frame once */
     tick(t += refresh);
+    r0 = renders; c0 = g_pace.commit_renders;
     arrive(1 * ms);
     tick(t += refresh);
-    assert(renders == 14);
+    assert(renders == r0);
     run_idle();
-    assert(renders == 15 && g_pace.commit_renders == 13);
+    assert(renders - r0 == 1 && g_pace.commit_renders - c0 == 1);
     tick(t += refresh);
-    assert(renders == 15);
+    assert(renders - r0 == 1);
+
+    /* streaming switched on after the draw was queued leaves the frame for the tick */
+    tick(t += refresh);
+    r0 = renders; c0 = g_pace.commit_renders;
+    arrive(1 * ms);
+    atomic_store(&g_stream_on, 1);
+    run_idle();
+    assert(renders == r0);
+    tick(t += refresh);
+    atomic_store(&g_stream_on, 0);
+    assert(renders - r0 == 1 && g_pace.commit_renders == c0);
 
     /* paced output, frame generation, the switch off and streaming keep drawing on the tick */
     const int idles = idles_added;
+    r0 = renders;
     for (int c = 0; c < 4; c++) {
         tick(t += refresh);
         if (c == 0) g_release_unpaced = 0;
@@ -128,7 +181,7 @@ int main(void) {
         assert(idles_added == idles);
         tick(t += refresh);
         g_release_unpaced = 1; framegen = 0; g_render_on_commit = 1; atomic_store(&g_stream_on, 0);
-        assert(renders == 16 + c);
+        assert(renders - r0 == c + 1);
     }
 
     /* without screen ticks the fallback timer still draws */
@@ -150,6 +203,7 @@ class RenderOnCommitTest(unittest.TestCase):
         source = SOURCE.read_text()
         render = extract_function(source, 'render_scene')
         self.assertIn('g_rendered_tick_ns = g_tick_vsync_ns;', render)
+        self.assertIn('g_tick_held = 0;', render)
         functions = ('commit_renders_on', 'render_on_commit', 'schedule_render', 'scene_waits_for_game', 'on_commit_idle', 'on_vsync')
         harness = PREAMBLE + '\n'.join(extract_function(source, name) for name in functions) + CHECKS
         with tempfile.TemporaryDirectory(prefix='droiddeck-render-on-commit-') as folder:
