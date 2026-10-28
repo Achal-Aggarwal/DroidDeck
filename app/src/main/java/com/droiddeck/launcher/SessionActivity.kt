@@ -2678,8 +2678,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun refreshSecondScreenDisplays() {
         if (!::displayManager.isInitialized) return
         val primaryId = shownOnDisplayId
+        val dualOff = SessionPrefs.dualScreenMode(this) == com.droiddeck.launcher.input.DualScreen.MODE_OFF
         val candidates = SecondScreenDisplays.available(displayManager, primaryId)
-            .filter { glassesScreen == null || it.id != glasses.displayId }
+            .filter { !dualOff && (glassesScreen == null || it.id != glasses.displayId) }
         val oldIds = secondScreenDisplays.map { it.id }.toSet()
         secondScreenDisplays = candidates
         val newIds = candidates.map { it.id }.toSet()
@@ -2690,6 +2691,16 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (selectedSecondScreenDisplay !in newIds) selectedSecondScreenDisplay = candidates.firstOrNull()?.id ?: -1
         if (secondScreenMode != SecondScreenMode.NONE && candidates.isEmpty()) closeSecondScreen(reset = true)
         else if (started && secondScreenMode != SecondScreenMode.NONE && secondScreenPresentation == null) showSecondScreen(secondScreenMode)
+    }
+
+    private fun openDualScreenControls() {
+        if (SessionState.secondScreenAutoOpened || secondScreenMode != SecondScreenMode.NONE || pipUi) return
+        if (!SessionPrefs.dualScreenSessionControls(this)) return
+        val target = com.droiddeck.launcher.input.DualScreen.display(this, displayManager, shownOnDisplayId) ?: return
+        if (secondScreenDisplays.none { it.id == target.displayId }) return
+        SessionState.secondScreenAutoOpened = true
+        selectedSecondScreenDisplay = target.displayId
+        selectSecondScreenMode(if (SessionState.deckPad) SecondScreenMode.DECK_CONTROLS else SecondScreenMode.KEYBOARD_TRACKPAD)
     }
 
     private fun selectSecondScreenDisplay(displayId: Int) {
@@ -3287,6 +3298,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
         refreshSecondScreenDisplays()
         if (secondScreenMode != SecondScreenMode.NONE && secondScreenPresentation == null) showSecondScreen(secondScreenMode)
+        else openDualScreenControls()
         startedScreens++
         SessionService.setActivityVisible(this, true, sessionActivityDisplayId)
         Glasses.rescan()

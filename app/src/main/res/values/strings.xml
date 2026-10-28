@@ -847,6 +847,17 @@
     <string name="setup_fullscreen">Fullscreen</string>
     <string name="setup_fullscreen_on">Hides the Android status and navigation bars</string>
     <string name="setup_fullscreen_off">Shows the Android status and navigation bars</string>
+    <string name="setup_dual_screen">Dual screen</string>
+    <string name="setup_dual_screen_hint">Automatic uses the second screen on handhelds with a built-in one. On uses any second display. Off keeps everything on one screen.</string>
+    <string name="setup_dual_screen_auto">Automatic</string>
+    <string name="setup_dual_screen_on">On</string>
+    <string name="setup_dual_screen_off">Off</string>
+    <string name="setup_dual_screen_menu">Bottom screen menu</string>
+    <string name="setup_dual_screen_menu_hint">Moves the sections to the second screen and types there, so the top screen keeps the full view. L2 and R2 switch sections.</string>
+    <string name="setup_dual_screen_controls">Bottom screen controls in games</string>
+    <string name="setup_dual_screen_controls_hint">Opens the trackpad and keyboard on the second screen when a session starts.</string>
+    <string name="dual_typing_title">Typing on the top screen</string>
+    <string name="dual_typing_done">Done</string>
     <string name="setup_default_home">Default Home app</string>
     <string name="setup_choose_home">Choose a Home app</string>
     <string name="setup_choose">Choose</string>
