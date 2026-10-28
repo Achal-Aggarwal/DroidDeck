@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.Display
@@ -15,6 +16,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewConfiguration
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
@@ -47,6 +49,7 @@ class SecondScreenPresentation(
     private val onQam: () -> Unit,
     private val onClose: () -> Unit,
     private val pad: PadBridge? = null,
+    private val onKeyboardClosed: () -> Unit = {},
 ) : Presentation(sessionActivity, display) {
     private val root = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -55,6 +58,9 @@ class SecondScreenPresentation(
     }
     private var currentMode = SecondScreenMode.NONE
     private var keyboardHost: KeyboardHost? = null
+    private var keyboardButton: Button? = null
+    private var keyboardPending = false
+    private var imeSeen = false
     private var terminalSession: TerminalSession? = null
     private var terminalView: TerminalView? = null
     private var terminalPid = -1
@@ -74,8 +80,37 @@ class SecondScreenPresentation(
         window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(root)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            root.setOnApplyWindowInsetsListener { view, insets ->
+                if (insets.isVisible(WindowInsets.Type.ime())) imeSeen = true
+                else if (imeSeen) keyboardClosed()
+                view.onApplyWindowInsets(insets)
+            }
+        }
         applyImmersiveMode()
         renderMode()
+    }
+
+    fun requestKeyboard() {
+        if (!showsKeyboard || keyboardHost == null) return
+        keyboardPending = true
+        if (window?.decorView?.hasWindowFocus() == true) showPendingKeyboard()
+    }
+
+    private fun showPendingKeyboard() {
+        keyboardPending = false
+        keyboardButton?.text = context.getString(R.string.second_hide_keyboard)
+        for (delay in longArrayOf(150L, 450L)) root.postDelayed({
+            val host = keyboardHost
+            if (host != null && !imeSeen && showsKeyboard) host.show()
+        }, delay)
+    }
+
+    private fun keyboardClosed() {
+        imeSeen = false
+        keyboardHost?.takeIf { it.shown }?.hide()
+        keyboardButton?.text = context.getString(R.string.second_show_keyboard)
+        onKeyboardClosed()
     }
 
     fun showMode(mode: SecondScreenMode) {
@@ -83,6 +118,8 @@ class SecondScreenPresentation(
         currentMode = mode
         if (created) renderMode()
     }
+
+    val showsKeyboard: Boolean get() = isShowing && currentMode == SecondScreenMode.KEYBOARD_TRACKPAD
 
     fun closeControls() {
         closeTerminal()
@@ -103,12 +140,15 @@ class SecondScreenPresentation(
         if (hasFocus) {
             applyImmersiveMode()
             sessionActivity.refreshClipboard()
+            if (keyboardPending) showPendingKeyboard()
         }
     }
 
     private fun renderMode() {
         keyboardHost?.hide()
         keyboardHost = null
+        keyboardButton = null
+        keyboardPending = false
         closeTerminal()
         root.removeAllViews()
         val mode = if (currentMode == SecondScreenMode.DECK_CONTROLS && !SessionState.deckPad) SecondScreenMode.NONE
@@ -147,16 +187,12 @@ class SecondScreenPresentation(
             text = context.getString(R.string.second_show_keyboard)
             setOnClickListener {
                 val host = keyboardHost ?: return@setOnClickListener
-                if (host.shown) {
-                    host.hide()
-                    text = context.getString(R.string.second_show_keyboard)
-                } else {
-                    host.show()
-                    text = context.getString(R.string.second_hide_keyboard)
-                }
+                host.toggle()
+                text = context.getString(if (host.shown) R.string.second_hide_keyboard else R.string.second_show_keyboard)
             }
         }
         controls.addView(keyboardButton)
+        this.keyboardButton = keyboardButton
         if (SessionState.mode == SessionService.MODE_STEAM) {
             controls.addView(Button(context).apply {
                 text = "STEAM"

@@ -730,6 +730,13 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             }
             androidx.compose.runtime.LaunchedEffect(drawerOpen, pcKeyboardOpen, achievementsOpen, pipUi) { updatePointerCapture() }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.steamKeyboard) { updateOnScreenControls() }
+            val keyboardRequestsSeen = androidx.compose.runtime.remember { intArrayOf(AgentGuest.keyboardRequests) }
+            androidx.compose.runtime.LaunchedEffect(AgentGuest.keyboardRequests) {
+                if (AgentGuest.keyboardRequests != keyboardRequestsSeen[0]) {
+                    keyboardRequestsSeen[0] = AgentGuest.keyboardRequests
+                    openBottomKeyboard()
+                }
+            }
             androidx.compose.runtime.LaunchedEffect(picturePosition, SessionState.running, pipUi, cardboard.enabled) { applyGameAlignment() }
             DroidDeckTheme {
             if (pipUi) {
@@ -2746,6 +2753,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 onQam = ::tapQam,
                 onClose = { selectSecondScreenMode(SecondScreenMode.NONE) },
                 pad = padBridge,
+                onKeyboardClosed = { com.droiddeck.launcher.ui.SessionTyping.returnFocus(this, taskId) },
             )
             secondScreenPresentation = presentation
         }
@@ -2755,6 +2763,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             secondScreenMode = mode
             SessionState.secondScreenMode = mode
             SessionState.secondScreenDisplay = selectedSecondScreenDisplay
+            updateKeyboardRoute()
         } catch (e: Exception) {
             Log.w(TAG, "could not show second-screen controls on ${target.name}", e)
             closeSecondScreen(reset = true)
@@ -2843,9 +2852,23 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         showCursor(px, py)
     }
 
+    private fun openBottomKeyboard() {
+        val presentation = secondScreenPresentation ?: return
+        if (!started || !presentation.showsKeyboard) return
+        val display = presentation.display?.displayId ?: return
+        presentation.requestKeyboard()
+        com.droiddeck.launcher.ui.SessionTyping.focusDisplay(this, display)
+    }
+
+    private fun updateKeyboardRoute() {
+        AgentGuest.routeKeyboard(this, SessionState.mode == SessionService.MODE_STEAM && secondScreenPresentation?.showsKeyboard == true)
+    }
+
     private fun closeSecondScreen(reset: Boolean) {
         secondScreenPresentation?.closeControls()
         secondScreenPresentation = null
+        com.droiddeck.launcher.ui.SessionTyping.close()
+        updateKeyboardRoute()
         if (reset) {
             secondScreenMode = SecondScreenMode.NONE
             SessionState.secondScreenMode = SecondScreenMode.NONE

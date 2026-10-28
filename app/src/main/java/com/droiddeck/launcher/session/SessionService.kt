@@ -1883,7 +1883,9 @@ class SessionService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (rootIntent?.component?.className == com.droiddeck.launcher.ui.DualScreenActivity::class.java.name) return
+        if (rootIntent?.component?.className in setOf(
+                com.droiddeck.launcher.ui.DualScreenActivity::class.java.name,
+                com.droiddeck.launcher.ui.SessionTypingActivity::class.java.name)) return
         if (pipTask || xrActivityVisible) {
             Log.i(TAG, "panel task dismissed - retaining the session under its active surface policy")
             activityVisible = false
