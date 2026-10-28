@@ -3129,4 +3129,10 @@
         <item quantity="one">%d sovellus</item>
         <item quantity="other">%d sovellusta</item>
     </plurals>
+    <string name="desktop_restore_title">Ohjelmistojasi palautetaan</string>
+    <string name="desktop_restore_body">Lisäämiäsi sovelluksia asennetaan uudelleen DroidDeck-päivityksen jälkeen.</string>
+    <string name="desktop_restore_done_title">Ohjelmistot palautettu</string>
+    <string name="desktop_restore_done_body">Lisäämäsi sovellukset on asennettu uudelleen.</string>
+    <string name="desktop_restore_failed_title">Joitakin ohjelmistoja ei voitu palauttaa</string>
+    <string name="desktop_restore_failed_body">Katso ~/.cache/droiddeck/apt-restore.log ja kokeile sitten sudo apt install Konsolessa.</string>
 </resources>

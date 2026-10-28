@@ -3129,4 +3129,10 @@
         <item quantity="one">%d εφαρμογή</item>
         <item quantity="other">%d εφαρμογές</item>
     </plurals>
+    <string name="desktop_restore_title">Επαναφορά του λογισμικού σας</string>
+    <string name="desktop_restore_body">Επανεγκατάσταση των εφαρμογών που προσθέσατε μετά από ενημέρωση του DroidDeck.</string>
+    <string name="desktop_restore_done_title">Το λογισμικό επαναφέρθηκε</string>
+    <string name="desktop_restore_done_body">Οι εφαρμογές που προσθέσατε εγκαταστάθηκαν ξανά.</string>
+    <string name="desktop_restore_failed_title">Δεν ήταν δυνατή η επαναφορά ορισμένου λογισμικού</string>
+    <string name="desktop_restore_failed_body">Δείτε το ~/.cache/droiddeck/apt-restore.log και μετά δοκιμάστε sudo apt install στο Konsole.</string>
 </resources>

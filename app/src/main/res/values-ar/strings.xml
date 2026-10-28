@@ -3269,4 +3269,10 @@
         <item quantity="many">%d تطبيقًا</item>
         <item quantity="other">%d تطبيق</item>
     </plurals>
+    <string name="desktop_restore_title">جارٍ استعادة برامجك</string>
+    <string name="desktop_restore_body">إعادة تثبيت التطبيقات التي أضفتها بعد تحديث DroidDeck.</string>
+    <string name="desktop_restore_done_title">تمت استعادة البرامج</string>
+    <string name="desktop_restore_done_body">التطبيقات التي أضفتها مثبتة مرة أخرى.</string>
+    <string name="desktop_restore_failed_title">تعذّرت استعادة بعض البرامج</string>
+    <string name="desktop_restore_failed_body">راجع ‎~/.cache/droiddeck/apt-restore.log ثم جرّب sudo apt install في Konsole.</string>
 </resources>

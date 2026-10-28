@@ -3131,4 +3131,10 @@
         <item quantity="one">%d uygulama</item>
         <item quantity="other">%d uygulama</item>
     </plurals>
+    <string name="desktop_restore_title">Yazılımınız geri yükleniyor</string>
+    <string name="desktop_restore_body">Eklediğiniz uygulamalar DroidDeck güncellemesinden sonra yeniden yükleniyor.</string>
+    <string name="desktop_restore_done_title">Yazılım geri yüklendi</string>
+    <string name="desktop_restore_done_body">Eklediğiniz uygulamalar yeniden yüklendi.</string>
+    <string name="desktop_restore_failed_title">Bazı yazılımlar geri yüklenemedi</string>
+    <string name="desktop_restore_failed_body">~/.cache/droiddeck/apt-restore.log dosyasına bakın, ardından Konsole\'da sudo apt install deneyin.</string>
 </resources>

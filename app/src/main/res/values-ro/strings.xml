@@ -3164,4 +3164,10 @@
         <item quantity="few">%d aplicații</item>
         <item quantity="other">%d de aplicații</item>
     </plurals>
+    <string name="desktop_restore_title">Se restaurează software-ul</string>
+    <string name="desktop_restore_body">Se reinstalează aplicațiile adăugate de tine după o actualizare DroidDeck.</string>
+    <string name="desktop_restore_done_title">Software restaurat</string>
+    <string name="desktop_restore_done_body">Aplicațiile adăugate de tine sunt instalate din nou.</string>
+    <string name="desktop_restore_failed_title">O parte din software nu a putut fi restaurată</string>
+    <string name="desktop_restore_failed_body">Vezi ~/.cache/droiddeck/apt-restore.log, apoi încearcă sudo apt install în Konsole.</string>
 </resources>

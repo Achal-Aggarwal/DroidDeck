@@ -141,6 +141,49 @@ int main(int argc, char **argv) {
 }
 """
 
+WRAPPER = r"""
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+#ifndef SYS_openat2
+#define SYS_openat2 437
+#endif
+
+struct how { uint64_t flags, mode, resolve; };
+
+int main(int argc, char **argv) {
+  struct sock_filter filter[] = {
+    BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+    BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_openat2, 0, 1),
+    BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | ENOSYS),
+    BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+  };
+  struct sock_fprog prog = {sizeof(filter) / sizeof(filter[0]), filter};
+  if (argc < 3 || prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) || prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) return 3;
+  int (*call)(int, const char *, struct how *, size_t) = (int (*)(int, const char *, struct how *, size_t))dlsym(RTLD_DEFAULT, "openat2");
+  if (!call) return 4;
+  int dir = open(argv[1], O_PATH | O_DIRECTORY | O_CLOEXEC);
+  struct how h = {O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644, 0x08};
+  int fd = call(dir, argv[2], &h, sizeof(h));
+  if (fd < 0) {
+    printf("ERR %d\n", errno);
+    return 1;
+  }
+  printf("OK\n");
+  return close(fd);
+}
+"""
+
 O_PATH = getattr(os, "O_PATH", 0o10000000)
 
 # (dirfd: r = the tree, o = "/"), flags, path, expected: a path in the tree, an errno name, or "proc" for a file outside it.
@@ -279,6 +322,12 @@ class Openat2PreloadTest(unittest.TestCase):
                                               LD_PRELOAD="%s:%s" % (cls.lib, cls.tmp / "real/libblfastpath.so")))
         except subprocess.TimeoutExpired:
             cls.fex = None
+        wrapper = cls.tmp / "wrapper.c"
+        wrapper.write_text(WRAPPER)
+        subprocess.run(["cc", "-O2", "-Wall", "-Werror", "-o", str(cls.tmp / "wrapper"), str(wrapper), "-ldl"], check=True)
+        (cls.tmp / "extract").mkdir()
+        cls.wrapper = subprocess.run([str(cls.tmp / "wrapper"), str(cls.tmp / "extract"), "file"], capture_output=True,
+                                     text=True, timeout=20, env=dict(os.environ, LD_PRELOAD=str(cls.lib)))
 
     @classmethod
     def tearDownClass(cls):
@@ -306,6 +355,10 @@ class Openat2PreloadTest(unittest.TestCase):
         self.assertIsNotNone(self.fex, "hung")
         self.assertEqual(self.fex.returncode, 0, self.fex.stderr)
         self.assertEqual(self.fex.stdout, "inside\n")
+
+    def test_the_libc_openat2_wrapper_creates_files_without_openat2(self):
+        self.assertEqual(self.wrapper.returncode, 0, self.wrapper.stdout + self.wrapper.stderr)
+        self.assertTrue((self.tmp / "extract/file").exists())
 
     def test_the_kernel_agrees(self):
         if self.kernel is None:

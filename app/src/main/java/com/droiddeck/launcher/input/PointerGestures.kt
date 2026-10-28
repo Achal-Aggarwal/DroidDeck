@@ -8,6 +8,9 @@ class PointerGestures {
         fun onButton(button: Int, pressed: Boolean, x: Float, y: Float)
         fun onWheel(steps: Int)
         fun onLongPress()
+        fun onScroll(dx: Float, dy: Float) {}
+        fun onScrollEnd() {}
+        fun onZoom(steps: Int) {}
     }
 
     companion object {

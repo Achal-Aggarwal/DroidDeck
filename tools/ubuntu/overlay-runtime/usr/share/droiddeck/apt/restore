@@ -1,0 +1,44 @@
+#!/bin/bash
+dir=/usr/share/droiddeck/apt
+state=/root/.local/share/droiddeck/apt
+log=/root/.cache/droiddeck/apt-restore.log
+[ -r "$dir/runtime-id" ] || exit 0
+runtime=$(cat "$dir/runtime-id")
+[ "$(cat "$state/restored" 2>/dev/null)" = "$runtime" ] && exit 0
+[ "$(cat "$state/attempted" 2>/dev/null)" = "$runtime" ] && exit 0
+mkdir -p "$state" "${log%/*}"
+echo "$runtime" > "$state/attempted"
+mapfile -t wanted < <(grep -v '^$' "$state/packages.txt" 2>/dev/null)
+have_sources=0
+for f in "$state"/sources/* "$state"/keyrings/*; do [ -f "$f" ] && have_sources=1; done
+if [ ${#wanted[@]} -eq 0 ] && [ "$have_sources" = 0 ]; then
+  echo "$runtime" > "$state/restored"
+  exit 0
+fi
+notify() { notify-send -a DroidDeck -i system-software-update "$@" 2>/dev/null; }
+notify "$(droiddeck-text desktop_restore_title)" "$(droiddeck-text desktop_restore_body)"
+{
+  date
+  ok=1
+  DROIDDECK_APT_RESTORING=1 /usr/local/bin/sudo /bin/bash -s "$state" <<'ROOT' || ok=0
+state=$1
+mapfile -t wanted < <(grep -v '^$' "$state/packages.txt" 2>/dev/null)
+for f in "$state"/sources/*; do [ -f "$f" ] && cp -n "$f" "/etc/apt/$(basename "$f" | sed 's#^sources.list.d_#sources.list.d/#')"; done
+for f in "$state"/keyrings/*; do
+  [ -f "$f" ] || continue
+  name=$(basename "$f")
+  case $name in keyrings_*) mkdir -p /etc/apt/keyrings; cp -n "$f" "/etc/apt/keyrings/${name#keyrings_}" ;; trusted.gpg.d_*) cp -n "$f" "/etc/apt/trusted.gpg.d/${name#trusted.gpg.d_}" ;; esac
+done
+apt-get update
+[ ${#wanted[@]} -eq 0 ] && exit 0
+missing=()
+for p in "${wanted[@]}"; do apt-cache show "$p" >/dev/null 2>&1 && missing+=("$p"); done
+[ ${#missing[@]} -eq 0 ] || DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}"
+ROOT
+} >> "$log" 2>&1
+if [ "$ok" = 1 ]; then
+  echo "$runtime" > "$state/restored"
+  notify "$(droiddeck-text desktop_restore_done_title)" "$(droiddeck-text desktop_restore_done_body)"
+else
+  notify "$(droiddeck-text desktop_restore_failed_title)" "$(droiddeck-text desktop_restore_failed_body)"
+fi

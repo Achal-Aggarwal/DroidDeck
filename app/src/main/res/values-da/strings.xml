@@ -3129,4 +3129,10 @@
         <item quantity="one">%d app</item>
         <item quantity="other">%d apps</item>
     </plurals>
+    <string name="desktop_restore_title">Gendanner din software</string>
+    <string name="desktop_restore_body">Geninstallerer de apps, du tilføjede, efter en DroidDeck-opdatering.</string>
+    <string name="desktop_restore_done_title">Software gendannet</string>
+    <string name="desktop_restore_done_body">De apps, du tilføjede, er installeret igen.</string>
+    <string name="desktop_restore_failed_title">Noget software kunne ikke gendannes</string>
+    <string name="desktop_restore_failed_body">Se ~/.cache/droiddeck/apt-restore.log, og prøv derefter sudo apt install i Konsole.</string>
 </resources>

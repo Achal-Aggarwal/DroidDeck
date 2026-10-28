@@ -642,19 +642,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     surfaceView.postDelayed({ pointerListener.onButton(PointerGestures.BTN_RIGHT, false, x, y) }, 50L)
                 }
                 override fun scrollStart(x: Float, y: Float) = scrollListener.onMove(x, y)
-                override fun scroll(dx: Float, dy: Float) {
-                    val rect = drawnRect() ?: return
-                    val out = SessionState.outputSize
-                    scrollRestX += dx * out.first / rect.width() * AXIS_UNITS_PER_PIXEL
-                    scrollRestY += dy * out.second / rect.height() * AXIS_UNITS_PER_PIXEL
-                    val h = scrollRestX.toInt()
-                    val v = scrollRestY.toInt()
-                    if (h == 0 && v == 0) return
-                    scrollRestX -= h
-                    scrollRestY -= v
-                    WaylandCompositor.nativeSendSceneInput(12, v, h)
-                }
-                override fun scrollEnd() = WaylandCompositor.nativeSendSceneInput(12, 0, 0)
+                override fun scroll(dx: Float, dy: Float) = fingerScroll(dx, dy)
+                override fun scrollEnd() = fingerScrollEnd()
             })
         touchscreenGestures = TouchscreenGestures(
             ViewConfiguration.get(this).scaledTouchSlop.toFloat(), gestureOutput,
@@ -2603,6 +2592,13 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             sendSceneButton(button, pressed)
         }
         override fun onWheel(steps: Int) { sendSceneWheel(steps) }
+        override fun onScroll(dx: Float, dy: Float) = fingerScroll(dx, dy)
+        override fun onScrollEnd() = fingerScrollEnd()
+        override fun onZoom(steps: Int) {
+            WaylandCompositor.nativeSendKey(KEY_LEFTCTRL, 1)
+            sendSceneWheel(steps)
+            WaylandCompositor.nativeSendKey(KEY_LEFTCTRL, 0)
+        }
         override fun onLongPress() {
             @Suppress("DEPRECATION")
             (getSystemService(VIBRATOR_SERVICE) as? android.os.Vibrator)?.vibrate(15)
@@ -2669,6 +2665,33 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun scrollTouchMode(): Boolean =
         (routedTouchMode == SessionPrefs.TOUCH_AUTO || routedTouchMode == SessionPrefs.TOUCH_DIRECT) && padMouseMode()
+
+    private fun fingerScroll(dx: Float, dy: Float) {
+        val rect = drawnRect() ?: return
+        val out = SessionState.outputSize
+        scrollRestX += dx * out.first / rect.width() * AXIS_UNITS_PER_PIXEL
+        scrollRestY += dy * out.second / rect.height() * AXIS_UNITS_PER_PIXEL
+        val h = scrollRestX.toInt()
+        val v = scrollRestY.toInt()
+        if (h == 0 && v == 0) return
+        scrollRestX -= h
+        scrollRestY -= v
+        WaylandCompositor.nativeSendSceneInput(12, v, h)
+    }
+
+    private fun fingerScrollEnd() {
+        scrollRestX = 0f
+        scrollRestY = 0f
+        WaylandCompositor.nativeSendSceneInput(12, 0, 0)
+    }
+
+    private fun placeTouchpadAtGuest(rect: android.graphics.RectF) {
+        if (pointerLocked || !CompositorHost.isStarted || surfaceView.width <= 0 || surfaceView.height <= 0) return
+        if (!WaylandCompositor.nativeCursorInputPos(cursorPosBuf)) return
+        val x = cursorPosBuf[0] / InputSpace.WIDTH.toFloat() * surfaceView.width
+        val y = cursorPosBuf[1] / InputSpace.HEIGHT.toFloat() * surfaceView.height
+        if (rect.contains(x, y)) touchpad.place(x, y)
+    }
 
     private fun moveLockedPointer(x: Float, y: Float) {
         val rect = drawnRect() ?: return
@@ -3081,6 +3104,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                         val fresh = touchpad.bounds.width() <= 1f
                         touchpad.bounds = rect
                         if (fresh) touchpad.place(rect.centerX(), rect.centerY())
+                    }
+                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                        touchpad.desktop = SessionState.mode == SessionService.MODE_DESKTOP
+                        placeTouchpadAtGuest(rect)
                     }
                     touchpad.onTouch(event)
                 } else {
@@ -4095,6 +4122,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         private const val PAD_SCROLL_POINTER_X = 0.985f
         private const val PAD_SCROLL_HEIGHTS_PER_S = 3f
         private const val AXIS_UNITS_PER_PIXEL = 3f
+        private const val KEY_LEFTCTRL = 29
         private const val DRAWER_HAT_THRESHOLD = 0.5f
         private const val DRAWER_STICK_ENTER_THRESHOLD = 0.55f
         private const val DRAWER_STICK_EXIT_THRESHOLD = 0.35f

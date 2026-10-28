@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import kotlin.math.abs
+import kotlin.math.hypot
 
 class TouchpadGestures(
     private val slopPx: Float,
@@ -15,6 +16,7 @@ class TouchpadGestures(
         private set
     var bounds: android.graphics.RectF = android.graphics.RectF(0f, 0f, 1f, 1f)
     var sensitivity = 1.15f
+    var desktop = false
 
     private val handler = Handler(Looper.getMainLooper())
     private var lastX = 0f
@@ -27,7 +29,11 @@ class TouchpadGestures(
     private var secondDownAt = 0L
     private var secondWasTap = false
     private var twoFingers = false
+    private var scrollAnchorX = 0f
     private var scrollAnchorY = 0f
+    private var fingers = 0
+    private var pinching = false
+    private var pinchSpan = 0f
     private var scrolled = false
     private var anchorId = -1
     private var anchorStartX = 0f
@@ -100,6 +106,7 @@ class TouchpadGestures(
                 lastX = event.x; lastY = event.y
                 downAt = event.eventTime
                 travelled = 0f; held = false; twoFingers = false; scrolled = false; secondWasTap = false
+                fingers = 1; pinching = false
                 anchorId = event.getPointerId(0); moverId = -1; holdDrag = false; scrollLocked = false
                 if (event.eventTime - lastTapAt < TouchTiming.DOUBLE_TAP_MS) {
                     dragging = true
@@ -112,6 +119,7 @@ class TouchpadGestures(
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 handler.removeCallbacks(longPress)
+                fingers = maxOf(fingers, event.pointerCount)
                 val i = event.actionIndex
                 if (moverId == -1 && event.getPointerId(i) != anchorId) {
                     moverId = event.getPointerId(i)
@@ -125,7 +133,9 @@ class TouchpadGestures(
                 twoFingers = true
                 secondDownAt = event.eventTime
                 secondWasTap = true
+                scrollAnchorX = (event.getX(0) + event.getX(1)) / 2f
                 scrollAnchorY = (event.getY(0) + event.getY(1)) / 2f
+                pinchSpan = span(event)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -158,6 +168,34 @@ class TouchpadGestures(
                         return true
                     }
                 } else if (holdDrag) {
+                    return true
+                }
+                if (twoFingers && event.pointerCount >= 2 && desktop) {
+                    if (fingers >= 3) return true
+                    val span = span(event)
+                    if (!scrolled && !pinching && abs(span - pinchSpan) > slopPx * PINCH_SLOPS) {
+                        pinching = true
+                        secondWasTap = false
+                        pinchSpan = span
+                    }
+                    if (pinching) {
+                        val steps = ((span - pinchSpan) / PINCH_STEP_PX).toInt()
+                        if (steps != 0) {
+                            listener.onZoom(-steps)
+                            pinchSpan += steps * PINCH_STEP_PX
+                        }
+                        return true
+                    }
+                    val midX = (event.getX(0) + event.getX(1)) / 2f
+                    val midY = (event.getY(0) + event.getY(1)) / 2f
+                    val dx = scrollAnchorX - midX
+                    val dy = scrollAnchorY - midY
+                    if (scrolled || abs(dx) + abs(dy) > slopPx) {
+                        listener.onScroll(dx, dy)
+                        scrollAnchorX = midX; scrollAnchorY = midY
+                        scrolled = true
+                        secondWasTap = false
+                    }
                     return true
                 }
                 if (twoFingers && event.pointerCount >= 2) {
@@ -200,7 +238,12 @@ class TouchpadGestures(
                 event.findPointerIndex(anchorId).takeIf { it >= 0 && it != event.actionIndex }?.let {
                     lastX = event.getX(it); lastY = event.getY(it)
                 }
-                if (twoFingers && secondWasTap && event.eventTime - secondDownAt < TouchTiming.TAP_MS && !scrolled) {
+                if (desktop && scrolled && event.pointerCount == 2) listener.onScrollEnd()
+                if (fingers >= 3) {
+                    if (event.pointerCount == 2 && secondWasTap && !scrolled && event.eventTime - downAt < TouchTiming.TAP_MS * 2)
+                        click(PointerGestures.BTN_MIDDLE)
+                    if (event.pointerCount == 2) secondWasTap = false
+                } else if (twoFingers && secondWasTap && event.eventTime - secondDownAt < TouchTiming.TAP_MS && !scrolled) {
                     click(PointerGestures.BTN_RIGHT)
                     secondWasTap = false
                 }
@@ -223,13 +266,19 @@ class TouchpadGestures(
                 }
                 dragging = false; held = false; twoFingers = false
                 holdDrag = false; scrollLocked = false; anchorId = -1; moverId = -1
+                pinching = false; fingers = 0
                 return true
             }
         }
         return false
     }
 
+    private fun span(event: MotionEvent): Float =
+        if (event.pointerCount < 2) 0f else hypot(event.getX(0) - event.getX(1), event.getY(0) - event.getY(1))
+
     companion object {
+        private const val PINCH_SLOPS = 3f
+        private const val PINCH_STEP_PX = 60f
         private const val HOLD_DRAG_MOVER_SLOPS = 2f
         private const val HOLD_DRAG_ANCHOR_SLOPS = 0.5f
     }

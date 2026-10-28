@@ -3199,4 +3199,10 @@
         <item quantity="many">%d aplikace</item>
         <item quantity="other">%d aplikací</item>
     </plurals>
+    <string name="desktop_restore_title">Obnovování vašeho softwaru</string>
+    <string name="desktop_restore_body">Přeinstalace aplikací, které jste přidali, po aktualizaci DroidDecku.</string>
+    <string name="desktop_restore_done_title">Software obnoven</string>
+    <string name="desktop_restore_done_body">Aplikace, které jste přidali, jsou znovu nainstalovány.</string>
+    <string name="desktop_restore_failed_title">Část softwaru se nepodařilo obnovit</string>
+    <string name="desktop_restore_failed_body">Podívejte se do ~/.cache/droiddeck/apt-restore.log a pak zkuste sudo apt install v Konsoli.</string>
 </resources>

@@ -3110,4 +3110,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d 個應用程式</item>
     </plurals>
+    <string name="desktop_restore_title">正在還原你的軟件</string>
+    <string name="desktop_restore_body">DroidDeck 更新後正在重新安裝你加入的應用程式。</string>
+    <string name="desktop_restore_done_title">軟件已還原</string>
+    <string name="desktop_restore_done_body">你加入的應用程式已重新安裝。</string>
+    <string name="desktop_restore_failed_title">部分軟件無法還原</string>
+    <string name="desktop_restore_failed_body">請查看 ~/.cache/droiddeck/apt-restore.log，然後在 Konsole 中嘗試 sudo apt install。</string>
 </resources>

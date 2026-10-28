@@ -3103,4 +3103,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d apl</item>
     </plurals>
+    <string name="desktop_restore_title">Memulihkan perisian anda</string>
+    <string name="desktop_restore_body">Memasang semula apl yang anda tambah selepas kemas kini DroidDeck.</string>
+    <string name="desktop_restore_done_title">Perisian dipulihkan</string>
+    <string name="desktop_restore_done_body">Apl yang anda tambah dipasang semula.</string>
+    <string name="desktop_restore_failed_title">Sesetengah perisian tidak dapat dipulihkan</string>
+    <string name="desktop_restore_failed_body">Lihat ~/.cache/droiddeck/apt-restore.log, kemudian cuba sudo apt install dalam Konsole.</string>
 </resources>

@@ -3129,4 +3129,10 @@
         <item quantity="one">%d ऐप</item>
         <item quantity="other">%d ऐप</item>
     </plurals>
+    <string name="desktop_restore_title">आपका सॉफ़्टवेयर वापस लाया जा रहा है</string>
+    <string name="desktop_restore_body">DroidDeck अपडेट के बाद आपके जोड़े गए ऐप्स फिर से इंस्टॉल किए जा रहे हैं।</string>
+    <string name="desktop_restore_done_title">सॉफ़्टवेयर वापस आ गया</string>
+    <string name="desktop_restore_done_body">आपके जोड़े गए ऐप्स फिर से इंस्टॉल हो गए हैं।</string>
+    <string name="desktop_restore_failed_title">कुछ सॉफ़्टवेयर वापस नहीं लाया जा सका</string>
+    <string name="desktop_restore_failed_body">~/.cache/droiddeck/apt-restore.log देखें, फिर Konsole में sudo apt install आज़माएँ।</string>
 </resources>

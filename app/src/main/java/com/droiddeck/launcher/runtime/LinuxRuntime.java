@@ -115,7 +115,7 @@ public final class LinuxRuntime {
     public static boolean isInstalled(Context context) {
         if (LinuxRuntimeInstaller.isRemoving() || LinuxRuntimeInstaller.hasRemovalPending(context)) return false;
         File root = rootDir(context);
-        return new File(root, "usr/bin/gamescope").isFile()
+        return (new File(root, "usr/bin/gamescope").isFile() || new File(root, "usr/games/gamescope").isFile())
                 && (new File(root, SESSION_SCRIPT.substring(1)).isFile()
                         || new File(root, LegacyNames.SESSION_SCRIPT.substring(1)).isFile())
                 && (patchedProot(context) || rootfsProotReady(context));
@@ -448,12 +448,36 @@ public final class LinuxRuntime {
                 + "\\" + host.version + "\\" + host.machine + "\\localdomain\\-1\\";
     }
 
-    public static void writeAccounts(Context context) throws IOException {
+    public static synchronized void writeAccounts(Context context) throws IOException {
         File root = rootDir(context);
         int uid = Process.myUid();
-        Files.write(new File(root, "etc/passwd").toPath(),
-                ("root:x:" + uid + ":" + uid + ":root:/root:/bin/bash\n").getBytes(StandardCharsets.UTF_8));
-        Files.write(new File(root, "etc/group").toPath(),
-                ("root:x:" + uid + ":\n").getBytes(StandardCharsets.UTF_8));
+        mergeAccounts(new File(root, "etc/passwd"), 2,
+                "root:x:" + uid + ":" + uid + ":root:/root:/bin/bash", "root:x:0:0:root:/root:/bin/bash", uid);
+        mergeAccounts(new File(root, "etc/group"), 2,
+                "root:x:" + uid + ":", "root:x:0:", uid);
+    }
+
+    static String mergedAccounts(String existing, int idField, String own, String zero, int uid) {
+        StringBuilder out = new StringBuilder(own).append('\n').append(zero).append('\n');
+        if (existing == null) return out.toString();
+        String ownId = Integer.toString(uid);
+        for (String line : existing.split("\n")) {
+            if (line.trim().isEmpty()) continue;
+            String[] fields = line.split(":", -1);
+            if (fields.length <= idField) continue;
+            if (fields[0].equals("root") || fields[idField].equals("0") || fields[idField].equals(ownId)) continue;
+            out.append(line).append('\n');
+        }
+        return out.toString();
+    }
+
+    private static void mergeAccounts(File file, int idField, String own, String zero, int uid) throws IOException {
+        String existing = file.isFile() ? new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8) : null;
+        String merged = mergedAccounts(existing, idField, own, zero, uid);
+        if (merged.equals(existing)) return;
+        File staged = File.createTempFile(file.getName(), ".staged", file.getParentFile());
+        Files.write(staged.toPath(), merged.getBytes(StandardCharsets.UTF_8));
+        Files.move(staged.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
     }
 }

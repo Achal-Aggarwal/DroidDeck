@@ -3111,4 +3111,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d 个应用</item>
     </plurals>
+    <string name="desktop_restore_title">正在恢复你的软件</string>
+    <string name="desktop_restore_body">DroidDeck 更新后正在重新安装你添加的应用。</string>
+    <string name="desktop_restore_done_title">软件已恢复</string>
+    <string name="desktop_restore_done_body">你添加的应用已重新安装。</string>
+    <string name="desktop_restore_failed_title">部分软件无法恢复</string>
+    <string name="desktop_restore_failed_body">请查看 ~/.cache/droiddeck/apt-restore.log，然后在 Konsole 中尝试 sudo apt install。</string>
 </resources>

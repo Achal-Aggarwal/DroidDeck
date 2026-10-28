@@ -3166,4 +3166,10 @@
         <item quantity="many">%d applications</item>
         <item quantity="other">%d applications</item>
     </plurals>
+    <string name="desktop_restore_title">Restauration de vos logiciels</string>
+    <string name="desktop_restore_body">Réinstallation des applis que vous avez ajoutées après une mise à jour de DroidDeck.</string>
+    <string name="desktop_restore_done_title">Logiciels restaurés</string>
+    <string name="desktop_restore_done_body">Les applis que vous avez ajoutées sont de nouveau installées.</string>
+    <string name="desktop_restore_failed_title">Certains logiciels n\'ont pas pu être restaurés</string>
+    <string name="desktop_restore_failed_body">Consultez ~/.cache/droiddeck/apt-restore.log, puis essayez sudo apt install dans Konsole.</string>
 </resources>

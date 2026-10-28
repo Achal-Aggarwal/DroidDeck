@@ -329,6 +329,26 @@ static int execveat_is_execve(const long *args) {
   return path[0] == '/' || (int)args[0] == AT_FDCWD;
 }
 
+static long openat2_call(const long *args) {
+  if (!real_syscall) {
+    real_syscall = (long (*)(long, ...)) dlsym(RTLD_NEXT, "syscall");
+  }
+  if (!__atomic_load_n(&openat2_missing, __ATOMIC_RELAXED)) {
+    long fd = real_syscall(SYS_openat2, args[0], args[1], args[2], args[3]);
+    if (fd != -1 || errno != ENOSYS) {
+      return fd;
+    }
+    __atomic_store_n(&openat2_missing, 1, __ATOMIC_RELAXED);
+  }
+  return openat2_via_openat(args);
+}
+
+int bl_openat2(int dirfd, const char *path, void *how, size_t size) __asm__("openat2");
+int bl_openat2(int dirfd, const char *path, void *how, size_t size) {
+  long args[6] = {dirfd, (long)path, (long)how, (long)size, 0, 0};
+  return (int)openat2_call(args);
+}
+
 int bl_writewatch_syscall(long number, const long *args, long (*real)(long, ...), long *rc) __attribute__((visibility("hidden")));
 
 long syscall(long number, ...) {
@@ -360,14 +380,7 @@ long syscall(long number, ...) {
     return handled;
   }
   if (number == SYS_openat2) {
-    if (!__atomic_load_n(&openat2_missing, __ATOMIC_RELAXED)) {
-      long fd = real_syscall(number, args[0], args[1], args[2], args[3]);
-      if (fd != -1 || errno != ENOSYS) {
-        return fd;
-      }
-      __atomic_store_n(&openat2_missing, 1, __ATOMIC_RELAXED);
-    }
-    return openat2_via_openat(args);
+    return openat2_call(args);
   }
   if (number == SYS_openat) {
     return path_open((int)args[0], (const char *)args[1], (int)args[2], args[3]);

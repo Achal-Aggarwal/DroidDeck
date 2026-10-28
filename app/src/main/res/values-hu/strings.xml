@@ -3129,4 +3129,10 @@
         <item quantity="one">%d alkalmazás</item>
         <item quantity="other">%d alkalmazás</item>
     </plurals>
+    <string name="desktop_restore_title">Szoftverek visszaállítása</string>
+    <string name="desktop_restore_body">A hozzáadott alkalmazások újratelepítése egy DroidDeck-frissítés után.</string>
+    <string name="desktop_restore_done_title">Szoftverek visszaállítva</string>
+    <string name="desktop_restore_done_body">A hozzáadott alkalmazások újra telepítve vannak.</string>
+    <string name="desktop_restore_failed_title">Néhány szoftvert nem sikerült visszaállítani</string>
+    <string name="desktop_restore_failed_body">Nézd meg a ~/.cache/droiddeck/apt-restore.log fájlt, majd próbáld a sudo apt install parancsot a Konsole-ban.</string>
 </resources>

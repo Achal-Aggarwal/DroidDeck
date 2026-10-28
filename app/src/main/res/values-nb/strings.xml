@@ -3129,4 +3129,10 @@
         <item quantity="one">%d app</item>
         <item quantity="other">%d apper</item>
     </plurals>
+    <string name="desktop_restore_title">Gjenoppretter programvaren din</string>
+    <string name="desktop_restore_body">Installerer appene du la til på nytt etter en DroidDeck-oppdatering.</string>
+    <string name="desktop_restore_done_title">Programvare gjenopprettet</string>
+    <string name="desktop_restore_done_body">Appene du la til er installert igjen.</string>
+    <string name="desktop_restore_failed_title">Noe programvare kunne ikke gjenopprettes</string>
+    <string name="desktop_restore_failed_body">Se ~/.cache/droiddeck/apt-restore.log, og prøv deretter sudo apt install i Konsole.</string>
 </resources>

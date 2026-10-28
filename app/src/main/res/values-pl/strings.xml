@@ -3202,4 +3202,10 @@
         <item quantity="many">%d aplikacji</item>
         <item quantity="other">%d aplikacji</item>
     </plurals>
+    <string name="desktop_restore_title">Przywracanie oprogramowania</string>
+    <string name="desktop_restore_body">Ponowna instalacja dodanych aplikacji po aktualizacji DroidDeck.</string>
+    <string name="desktop_restore_done_title">Oprogramowanie przywrócone</string>
+    <string name="desktop_restore_done_body">Dodane aplikacje są ponownie zainstalowane.</string>
+    <string name="desktop_restore_failed_title">Nie udało się przywrócić części oprogramowania</string>
+    <string name="desktop_restore_failed_body">Sprawdź ~/.cache/droiddeck/apt-restore.log, a potem spróbuj sudo apt install w Konsole.</string>
 </resources>

@@ -3129,4 +3129,10 @@
         <item quantity="one">%d приложение</item>
         <item quantity="other">%d приложения</item>
     </plurals>
+    <string name="desktop_restore_title">Възстановяване на софтуера ви</string>
+    <string name="desktop_restore_body">Преинсталиране на приложенията, които добавихте, след обновяване на DroidDeck.</string>
+    <string name="desktop_restore_done_title">Софтуерът е възстановен</string>
+    <string name="desktop_restore_done_body">Добавените от вас приложения са инсталирани отново.</string>
+    <string name="desktop_restore_failed_title">Част от софтуера не можа да бъде възстановена</string>
+    <string name="desktop_restore_failed_body">Вижте ~/.cache/droiddeck/apt-restore.log, след това опитайте sudo apt install в Konsole.</string>
 </resources>

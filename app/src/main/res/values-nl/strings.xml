@@ -3129,4 +3129,10 @@
         <item quantity="one">%d app</item>
         <item quantity="other">%d apps</item>
     </plurals>
+    <string name="desktop_restore_title">Je software wordt hersteld</string>
+    <string name="desktop_restore_body">De apps die je hebt toegevoegd worden na een DroidDeck-update opnieuw geïnstalleerd.</string>
+    <string name="desktop_restore_done_title">Software hersteld</string>
+    <string name="desktop_restore_done_body">De apps die je hebt toegevoegd zijn weer geïnstalleerd.</string>
+    <string name="desktop_restore_failed_title">Sommige software kon niet worden hersteld</string>
+    <string name="desktop_restore_failed_body">Bekijk ~/.cache/droiddeck/apt-restore.log en probeer daarna sudo apt install in Konsole.</string>
 </resources>

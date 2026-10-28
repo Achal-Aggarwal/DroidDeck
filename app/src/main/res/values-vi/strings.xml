@@ -3103,4 +3103,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d ứng dụng</item>
     </plurals>
+    <string name="desktop_restore_title">Đang khôi phục phần mềm của bạn</string>
+    <string name="desktop_restore_body">Đang cài lại các ứng dụng bạn đã thêm sau khi cập nhật DroidDeck.</string>
+    <string name="desktop_restore_done_title">Đã khôi phục phần mềm</string>
+    <string name="desktop_restore_done_body">Các ứng dụng bạn đã thêm đã được cài lại.</string>
+    <string name="desktop_restore_failed_title">Không thể khôi phục một số phần mềm</string>
+    <string name="desktop_restore_failed_body">Xem ~/.cache/droiddeck/apt-restore.log, rồi thử sudo apt install trong Konsole.</string>
 </resources>

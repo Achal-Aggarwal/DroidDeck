@@ -3103,4 +3103,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d แอป</item>
     </plurals>
+    <string name="desktop_restore_title">กำลังกู้คืนซอฟต์แวร์ของคุณ</string>
+    <string name="desktop_restore_body">กำลังติดตั้งแอปที่คุณเพิ่มไว้อีกครั้งหลังการอัปเดต DroidDeck</string>
+    <string name="desktop_restore_done_title">กู้คืนซอฟต์แวร์แล้ว</string>
+    <string name="desktop_restore_done_body">แอปที่คุณเพิ่มไว้ติดตั้งกลับมาแล้ว</string>
+    <string name="desktop_restore_failed_title">กู้คืนซอฟต์แวร์บางส่วนไม่ได้</string>
+    <string name="desktop_restore_failed_body">ดู ~/.cache/droiddeck/apt-restore.log แล้วลองใช้ sudo apt install ใน Konsole</string>
 </resources>

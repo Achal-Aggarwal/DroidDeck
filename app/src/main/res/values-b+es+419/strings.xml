@@ -3116,4 +3116,10 @@
         <item quantity="many">%d apps</item>
         <item quantity="other">%d apps</item>
     </plurals>
+    <string name="desktop_restore_title">Restaurando tu software</string>
+    <string name="desktop_restore_body">Reinstalando las apps que agregaste después de una actualización de DroidDeck.</string>
+    <string name="desktop_restore_done_title">Software restaurado</string>
+    <string name="desktop_restore_done_body">Las apps que agregaste están instaladas otra vez.</string>
+    <string name="desktop_restore_failed_title">No se pudo restaurar parte del software</string>
+    <string name="desktop_restore_failed_body">Revisa ~/.cache/droiddeck/apt-restore.log y luego prueba sudo apt install en Konsole.</string>
 </resources>

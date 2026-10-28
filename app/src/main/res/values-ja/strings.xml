@@ -3105,4 +3105,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d 個のアプリ</item>
     </plurals>
+    <string name="desktop_restore_title">ソフトウェアを復元しています</string>
+    <string name="desktop_restore_body">DroidDeck の更新後、追加したアプリを再インストールしています。</string>
+    <string name="desktop_restore_done_title">ソフトウェアを復元しました</string>
+    <string name="desktop_restore_done_body">追加したアプリが再びインストールされました。</string>
+    <string name="desktop_restore_failed_title">一部のソフトウェアを復元できませんでした</string>
+    <string name="desktop_restore_failed_body">~/.cache/droiddeck/apt-restore.log を確認してから、Konsole で sudo apt install を試してください。</string>
 </resources>

@@ -3118,4 +3118,10 @@
     <plurals name="apps_count">
         <item quantity="other">%d aplikasi</item>
     </plurals>
+    <string name="desktop_restore_title">Memulihkan perangkat lunak Anda</string>
+    <string name="desktop_restore_body">Menginstal ulang aplikasi yang Anda tambahkan setelah pembaruan DroidDeck.</string>
+    <string name="desktop_restore_done_title">Perangkat lunak dipulihkan</string>
+    <string name="desktop_restore_done_body">Aplikasi yang Anda tambahkan sudah terinstal lagi.</string>
+    <string name="desktop_restore_failed_title">Beberapa perangkat lunak tidak dapat dipulihkan</string>
+    <string name="desktop_restore_failed_body">Lihat ~/.cache/droiddeck/apt-restore.log, lalu coba sudo apt install di Konsole.</string>
 </resources>

@@ -3129,4 +3129,10 @@
         <item quantity="one">%d App</item>
         <item quantity="other">%d Apps</item>
     </plurals>
+    <string name="desktop_restore_title">Deine Software wird wiederhergestellt</string>
+    <string name="desktop_restore_body">Die Apps, die du hinzugefügt hast, werden nach einem DroidDeck-Update neu installiert.</string>
+    <string name="desktop_restore_done_title">Software wiederhergestellt</string>
+    <string name="desktop_restore_done_body">Die Apps, die du hinzugefügt hast, sind wieder installiert.</string>
+    <string name="desktop_restore_failed_title">Manche Software konnte nicht wiederhergestellt werden</string>
+    <string name="desktop_restore_failed_body">Sieh in ~/.cache/droiddeck/apt-restore.log nach und versuche dann sudo apt install in Konsole.</string>
 </resources>
