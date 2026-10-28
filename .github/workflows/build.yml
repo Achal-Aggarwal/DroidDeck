@@ -282,6 +282,8 @@ jobs:
     timeout-minutes: 45
     outputs:
       variants: ${{ steps.variants.outputs.list }}
+      build: ${{ steps.build.outcome }}
+      apk: ${{ steps.apk-upload.outcome }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -545,29 +547,6 @@ jobs:
           path: app/src/main/rust/stores/Cargo.lock
           if-no-files-found: ignore
 
-      - name: Unit tests
-        id: unit-tests
-        env:
-          DROIDDECK_BUILD_LABEL: ${{ steps.build-label.outputs.label }}
-          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
-        run: |
-          set -o pipefail
-          mkdir -p app/build
-          ./gradlew testReleaseUnitTest --console=plain --info --stacktrace -Drobolectric.logging=stderr -PndkVersion="$NDK_VERSION" 2>&1 | tee app/build/unit-tests.log
-
-      - name: Upload unit test diagnostics
-        id: unit-test-diagnostics
-        if: always() && steps.unit-tests.outcome != 'skipped'
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results
-          path: |
-            app/build/unit-tests.log
-            app/build/test-results/testReleaseUnitTest/
-            app/build/reports/tests/testReleaseUnitTest/
-          if-no-files-found: ignore
-          retention-days: 14
-
       - name: Sign with the testkey (v1 + v2 + v3)
         run: |
           set -euo pipefail
@@ -613,17 +592,156 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-      - name: Report on the pull request
+      - name: Keep the build log for the pull request report
         if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-report
+          path: |
+            /tmp/build.log
+            /tmp/pr-merge.md
+          if-no-files-found: ignore
+          retention-days: 1
+
+  unit-tests:
+    needs: [source, components, xbox]
+    name: Android unit tests
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      outcome: ${{ steps.unit-tests.outcome }}
+      diagnostics: ${{ steps.unit-test-diagnostics.outputs.artifact-url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Merge the pinned APK base
+        if: github.event_name == 'pull_request'
+        env:
+          BUILD_BASE_SHA: ${{ needs.source.outputs.base-sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BUILD_BASE_SHA"
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git merge --no-ff --no-edit FETCH_HEAD
+      - name: Verify backend and APK source match
+        env:
+          XBOX_SOURCE_TREE: ${{ needs.source.outputs.tree-sha }}
+        run: test "$(git rev-parse 'HEAD^{tree}')" = "$XBOX_SOURCE_TREE"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          cache-cleanup: ${{ github.event_name == 'pull_request' && 'never' || 'on-success' }}
+
+      - name: Resolve the pinned Android NDK
+        run: bash tools/ci/resolve-ndk.sh
+
+      - name: Set the APK build label
+        id: build-label
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BUILD_REF: ${{ github.ref_name }}
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            tree_state=dirty
+          else
+            tree_state=clean
+          fi
+          echo "DROIDDECK_BUILD_TREE_STATE=$tree_state" >> "$GITHUB_ENV"
+          if [[ -n "$PR_NUMBER" ]]; then
+            label="pr${PR_NUMBER} at ${PR_HEAD_SHA:0:7}"
+          else
+            label="${BUILD_REF} at ${BUILD_SHA:0:7}"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "DROIDDECK_SOURCE_COMMIT=${PR_HEAD_SHA:-$BUILD_SHA}" >> "$GITHUB_ENV"
+          echo "DROIDDECK_PR_NUMBER=${PR_NUMBER:-0}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: prepared-components
+          path: app/build
+      - name: Verify and unpack prepared components
+        env:
+          SOURCE_TREE: ${{ needs.source.outputs.tree-sha }}
+        run: python3 tools/components/prepare.py unpack --tree "$SOURCE_TREE"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: xbox-arm64
+          path: app/src/main/assets/linuxfs/usr/local/lib/droiddeck-xbox
+
+      - name: Cache checksum-pinned pack inputs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/droiddeck-pack-inputs
+          key: pack-inputs-v1-${{ hashFiles('tools/packs/build.sh', 'tools/packs/fetch-verified.sh', 'tools/packs/tracking/release.env') }}
+          restore-keys: pack-inputs-v1-
+      - name: Build the add-on packs
+        run: bash tools/packs/build.sh app/build/packs
+
+      - name: Unit tests
+        id: unit-tests
+        env:
+          DROIDDECK_BUILD_LABEL: ${{ steps.build-label.outputs.label }}
+          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
+        run: |
+          set -o pipefail
+          mkdir -p app/build
+          python3 tools/release/runtime_inputs.py record
+          ./gradlew testReleaseUnitTest --console=plain --info --stacktrace -Drobolectric.logging=stderr -PskipRust=true -PndkVersion="$NDK_VERSION" 2>&1 | tee app/build/unit-tests.log
+
+      - name: Upload unit test diagnostics
+        id: unit-test-diagnostics
+        if: always() && steps.unit-tests.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: |
+            app/build/unit-tests.log
+            app/build/test-results/testReleaseUnitTest/
+            app/build/reports/tests/testReleaseUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report:
+    name: Report the build on the pull request
+    needs: [build, unit-tests]
+    if: ${{ always() && github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: build-report
+          path: /tmp
+      - name: Report on the pull request
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BUILD_OUTCOME: ${{ steps.build.outcome }}
-          UNIT_TEST_OUTCOME: ${{ steps.unit-tests.outcome }}
-          TEST_DIAGNOSTICS_URL: ${{ steps.unit-test-diagnostics.outputs.artifact-url }}
-          APK_OUTCOME: ${{ steps.apk-upload.outcome }}
+          BUILD_OUTCOME: ${{ needs.build.outputs.build }}
+          UNIT_TEST_OUTCOME: ${{ needs.unit-tests.outputs.outcome }}
+          TEST_DIAGNOSTICS_URL: ${{ needs.unit-tests.outputs.diagnostics }}
+          APK_OUTCOME: ${{ needs.build.outputs.apk }}
         run: bash tools/release/report-build.sh
 
   python-tests:
@@ -689,7 +807,7 @@ jobs:
 
   checks:
     name: Compile and test APK
-    needs: [build, python-tests]
+    needs: [build, unit-tests, python-tests]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -697,8 +815,9 @@ jobs:
       - name: Require compilation and every test job
         env:
           BUILD_RESULT: ${{ needs.build.result }}
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
           PYTHON_RESULT: ${{ needs.python-tests.result }}
-        run: test "$BUILD_RESULT" = success && test "$PYTHON_RESULT" = success
+        run: test "$BUILD_RESULT" = success && test "$UNIT_RESULT" = success && test "$PYTHON_RESULT" = success
 
   sign:
     needs: [build, checks]

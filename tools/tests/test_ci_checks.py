@@ -39,9 +39,11 @@ class CiChecksTest(unittest.TestCase):
     def test_build_and_tests_use_identical_generated_metadata(self):
         jobs = yaml.safe_load((ROOT / '.github/workflows/build.yml').read_text())['jobs']
         steps = {step.get('id'): step for step in jobs['build']['steps']}
-        self.assertEqual(steps['build']['env'], steps['unit-tests']['env'])
-        self.assertIn('DROIDDECK_BUILD_LABEL', steps['unit-tests']['env'])
-        self.assertIn('SGDB_API_KEY', steps['unit-tests']['env'])
+        tests = {step.get('id'): step for step in jobs['unit-tests']['steps']}
+        self.assertEqual(steps['build']['env'], tests['unit-tests']['env'])
+        self.assertIn('DROIDDECK_BUILD_LABEL', tests['unit-tests']['env'])
+        self.assertIn('SGDB_API_KEY', tests['unit-tests']['env'])
+        self.assertEqual(steps['build-label']['env'], tests['build-label']['env'])
         gradle = (ROOT / 'app/build.gradle').read_text()
         self.assertIn("outputs.doNotCacheIf('CI executes the test suite on every run') { true }", gradle)
         self.assertIn('outputs.upToDateWhen { false }', gradle)
@@ -50,7 +52,8 @@ class CiChecksTest(unittest.TestCase):
         jobs = yaml.safe_load((ROOT / '.github/workflows/build.yml').read_text())['jobs']
         for name in ('xbox', 'components', 'python-tests'):
             self.assertEqual(jobs[name]['needs'], 'source')
-        self.assertEqual(set(jobs['build']['needs']), {'source', 'components', 'xbox'})
+        for name in ('build', 'unit-tests'):
+            self.assertEqual(set(jobs[name]['needs']), {'source', 'components', 'xbox'})
 
     def test_dependency_update_errors_block_installation(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -81,15 +84,15 @@ class CiChecksTest(unittest.TestCase):
         jobs = yaml.safe_load((ROOT / '.github/workflows/build.yml').read_text())['jobs']
         gate = jobs['checks']
         self.assertEqual(gate['name'], 'Compile and test APK')
-        self.assertEqual(set(gate['needs']), {'build', 'python-tests'})
+        self.assertEqual(set(gate['needs']), {'build', 'unit-tests', 'python-tests'})
         self.assertIn('always()', gate['if'])
-        for build, python in itertools.product(('success', 'failure', 'cancelled', 'skipped'), repeat=2):
-            with self.subTest(build=build, python=python):
+        for build, unit, python in itertools.product(('success', 'failure', 'cancelled', 'skipped'), repeat=3):
+            with self.subTest(build=build, unit=unit, python=python):
                 result = subprocess.run(
                     ['bash', '-c', gate['steps'][0]['run']],
-                    env=dict(os.environ, BUILD_RESULT=build, PYTHON_RESULT=python),
+                    env=dict(os.environ, BUILD_RESULT=build, UNIT_RESULT=unit, PYTHON_RESULT=python),
                     capture_output=True)
-                self.assertEqual(result.returncode == 0, build == python == 'success')
+                self.assertEqual(result.returncode == 0, build == unit == python == 'success')
         for publisher in ('sign', 'packs'):
             self.assertIn('checks', jobs[publisher]['needs'])
 

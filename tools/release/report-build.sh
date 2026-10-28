@@ -26,7 +26,7 @@ MARK="<!-- droiddeck-pr-build -->"
     success:failure:*)
       echo "### ERROR: Unit tests failed"
       echo
-      echo "The APK compiled, but unit tests failed. No installable artifact was published."
+      echo "The APK compiled, but unit tests failed, so this build will not be signed or published as a test build."
       echo
       if [ -n "$TEST_DIAGNOSTICS_URL" ]; then
         echo "The [unit-test-results]($TEST_DIAGNOSTICS_URL) artifact contains the test log and any generated reports."
