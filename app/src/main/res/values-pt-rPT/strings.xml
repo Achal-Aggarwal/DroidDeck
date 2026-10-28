@@ -765,7 +765,7 @@
     <string name="setup_fullscreen_on">Oculta as barras de estado e de navegação do Android</string>
     <string name="setup_fullscreen_off">Mostra as barras de estado e de navegação do Android</string>
     <string name="setup_dual_screen">Ecrã duplo</string>
-    <string name="setup_dual_screen_hint">Automático usa o segundo ecrã em portáteis que têm um integrado. Ativado usa qualquer segundo ecrã. Desativado mantém tudo num só ecrã.</string>
+    <string name="setup_dual_screen_hint">Automático usa o segundo ecrã em consolas portáteis com ecrã secundário integrado. Ativado usa qualquer segundo ecrã. Desativado mantém tudo num só ecrã.</string>
     <string name="setup_dual_screen_auto">Automático</string>
     <string name="setup_dual_screen_on">Ativado</string>
     <string name="setup_dual_screen_off">Desativado</string>

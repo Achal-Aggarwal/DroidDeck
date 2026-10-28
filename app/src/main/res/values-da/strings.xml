@@ -770,7 +770,7 @@
     <string name="setup_fullscreen_on">Skjuler Androids status- og navigationsbjælker</string>
     <string name="setup_fullscreen_off">Viser Androids status- og navigationsbjælker</string>
     <string name="setup_dual_screen">Dobbeltskærm</string>
-    <string name="setup_dual_screen_hint">Automatisk bruger den anden skærm på håndholdte enheder med en indbygget skærm. Til bruger enhver anden skærm. Fra holder alt på én skærm.</string>
+    <string name="setup_dual_screen_hint">Automatisk bruger den anden skærm på håndholdte enheder med en indbygget ekstra skærm. Til bruger enhver anden skærm. Fra holder alt på én skærm.</string>
     <string name="setup_dual_screen_auto">Automatisk</string>
     <string name="setup_dual_screen_on">Til</string>
     <string name="setup_dual_screen_off">Fra</string>

@@ -767,7 +767,7 @@
     <string name="setup_fullscreen_on">Ẩn thanh trạng thái và thanh điều hướng của Android</string>
     <string name="setup_fullscreen_off">Hiện thanh trạng thái và thanh điều hướng của Android</string>
     <string name="setup_dual_screen">Màn hình kép</string>
-    <string name="setup_dual_screen_hint">Tự động dùng màn hình thứ hai trên máy cầm tay có màn hình tích hợp. Bật dùng bất kỳ màn hình thứ hai nào. Tắt giữ mọi thứ trên một màn hình.</string>
+    <string name="setup_dual_screen_hint">Tự động dùng màn hình thứ hai trên máy cầm tay có màn hình thứ hai tích hợp. Bật dùng bất kỳ màn hình thứ hai nào. Tắt giữ mọi thứ trên một màn hình.</string>
     <string name="setup_dual_screen_auto">Tự động</string>
     <string name="setup_dual_screen_on">Bật</string>
     <string name="setup_dual_screen_off">Tắt</string>

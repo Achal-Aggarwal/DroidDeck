@@ -1005,7 +1005,7 @@ class FrontEndActivity : ComponentActivity() {
                         integrationFocus = integrationFocus,
                         androidApps = androidApps,
                         secondScreenDisplays = secondScreenDisplays,
-                        dualScreen = dualDisplayId >= 0,
+                        dualScreen = dualDisplayId >= 0 && com.droiddeck.launcher.ui.DualScreenPanel.available,
                         dualScreenDevice = dualScreenDevice,
                         dualScreenMode = dualScreenMode,
                         dualScreenLauncher = dualScreenLauncher,

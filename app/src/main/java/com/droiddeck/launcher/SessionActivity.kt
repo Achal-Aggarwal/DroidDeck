@@ -3321,7 +3321,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
         refreshSecondScreenDisplays()
         if (secondScreenMode != SecondScreenMode.NONE && secondScreenPresentation == null) showSecondScreen(secondScreenMode)
-        else openDualScreenControls()
+        else if (::loading.isInitialized && !loading.visible) openDualScreenControls()
         startedScreens++
         SessionService.setActivityVisible(this, true, sessionActivityDisplayId)
         Glasses.rescan()
@@ -3841,6 +3841,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             loading.visible = false
             hud.start()
             memoryHud.start()
+            if (started) openDualScreenControls()
         }
     }
 

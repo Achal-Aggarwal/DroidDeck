@@ -64,7 +64,9 @@ object DualScreenPanel {
     var model by mutableStateOf<DualPanelModel?>(null)
     private var displayId = -1
     private var activity: DualScreenActivity? = null
+        set(value) { field = value; available = value != null || launching }
     private var launching = false
+        set(value) { field = value; available = value || activity != null }
     private var ownerTask = -1
 
     var typing by mutableStateOf<TypingRequest?>(null)
@@ -74,6 +76,8 @@ object DualScreenPanel {
 
     val shownOn: Int get() = if (activity != null || launching) displayId else -1
     val attached: Boolean get() = activity != null
+    var available by mutableStateOf(false)
+        private set
 
     fun startTyping(request: TypingRequest) {
         typing = request
@@ -166,7 +170,7 @@ class DualScreenActivity : ComponentActivity() {
             LaunchedEffect(typingOn) { acceptFocus(typingOn) }
             DroidDeckTheme(model?.theme, appScale = model?.appScale ?: com.droiddeck.launcher.core.AppUiPrefs.DEFAULT_SCALE) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                    if (request != null && typingOn) TypingPanel(request) { DualScreenPanel.finishTyping() }
+                    if (request != null && typingOn) TypingPanel(request) { if (DualScreenPanel.typing === request) DualScreenPanel.finishTyping() }
                     else if (model != null) DualPanelContent(model)
                 }
             }

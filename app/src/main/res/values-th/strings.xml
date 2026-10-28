@@ -767,7 +767,7 @@
     <string name="setup_fullscreen_on">ซ่อนแถบสถานะและแถบนำทางของ Android</string>
     <string name="setup_fullscreen_off">แสดงแถบสถานะและแถบนำทางของ Android</string>
     <string name="setup_dual_screen">หน้าจอคู่</string>
-    <string name="setup_dual_screen_hint">อัตโนมัติจะใช้หน้าจอที่สองบนเครื่องพกพาที่มีหน้าจอในตัว เปิดจะใช้หน้าจอที่สองใดก็ได้ ปิดจะแสดงทุกอย่างบนหน้าจอเดียว</string>
+    <string name="setup_dual_screen_hint">อัตโนมัติจะใช้หน้าจอที่สองบนเครื่องพกพาที่มีหน้าจอที่สองในตัว เปิดจะใช้หน้าจอที่สองใดก็ได้ ปิดจะแสดงทุกอย่างบนหน้าจอเดียว</string>
     <string name="setup_dual_screen_auto">อัตโนมัติ</string>
     <string name="setup_dual_screen_on">เปิด</string>
     <string name="setup_dual_screen_off">ปิด</string>

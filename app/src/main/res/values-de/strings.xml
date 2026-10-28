@@ -762,7 +762,7 @@
     <string name="setup_fullscreen_on">Blendet die Status- und Navigationsleiste von Android aus</string>
     <string name="setup_fullscreen_off">Zeigt die Status- und Navigationsleiste von Android an</string>
     <string name="setup_dual_screen">Zwei Bildschirme</string>
-    <string name="setup_dual_screen_hint">Automatisch nutzt den zweiten Bildschirm auf Handhelds mit eingebautem Zweitbildschirm. Ein nutzt jeden zweiten Bildschirm. Aus lässt alles auf einem Bildschirm.</string>
+    <string name="setup_dual_screen_hint">Automatisch nutzt den zweiten Bildschirm auf Handhelds mit eingebautem Zweitbildschirm. Ein nutzt einen beliebigen zweiten Bildschirm. Aus lässt alles auf einem Bildschirm.</string>
     <string name="setup_dual_screen_auto">Automatisch</string>
     <string name="setup_dual_screen_on">Ein</string>
     <string name="setup_dual_screen_off">Aus</string>
