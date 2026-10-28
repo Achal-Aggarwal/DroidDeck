@@ -20,9 +20,18 @@ def expand(value, env):
     return re.sub(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", lambda m: env.get(m.group(1), ""), str(value))
 
 
+def provider_path(path, provider, revision):
+    snap = f"{SNAP_DIR}/{provider}/{revision}"
+    for var, value in (("$SNAP_DATA", f"/var/snap/{provider}/{revision}"),
+                       ("$SNAP_COMMON", f"/var/snap/{provider}/common"), ("$SNAP", snap)):
+        if path == var or path.startswith(var + "/"):
+            return os.path.normpath(value + path[len(var):])
+    return os.path.normpath(f"{snap}/{path}")
+
+
 def content_binds(name, meta, env):
     out = []
-    for plug in (meta.get("plugs") or {}).values():
+    for plug_name, plug in (meta.get("plugs") or {}).items():
         if not isinstance(plug, dict) or plug.get("interface") != "content" or not plug.get("target"):
             continue
         provider = (plug.get("default-provider") or "").split(":")[0]
@@ -32,20 +41,21 @@ def content_binds(name, meta, env):
             slots = load(provider).get("slots") or {}
         except OSError:
             continue
-        source = None
-        for slot in slots.values():
+        revision = os.path.basename(os.path.realpath(f"{SNAP_DIR}/{provider}/current"))
+        target = expand(plug["target"], env)
+        for slot_name, slot in slots.items():
             if not isinstance(slot, dict) or slot.get("interface") != "content":
                 continue
-            if slot.get("content") not in (plug.get("content"), None) and plug.get("content"):
+            if slot.get("content", slot_name) != plug.get("content", plug_name):
                 continue
-            reads = slot.get("read") or (slot.get("source") or {}).get("read") or []
-            if reads:
-                source = reads[0]
-                break
-        if not source:
-            continue
-        provider_env = dict(env, SNAP=f"{SNAP_DIR}/{provider}/current")
-        out.append((expand(source, provider_env), expand(plug["target"], env)))
+            nested = "source" in slot
+            reads = (slot.get("source") or {}).get("read") if nested else slot.get("read")
+            for path in reads or []:
+                source = provider_path(str(path), provider, revision)
+                out.append((plug_name, source, os.path.join(target, os.path.basename(source)) if nested else target))
+                if not nested:
+                    break
+            break
     return out
 
 
@@ -111,9 +121,14 @@ def main(argv):
             bwrap += ["--bind", d, d]
     bwrap += ["--bind", "/", "/var/lib/snapd/hostfs"]
     bwrap += ["--bind", "/dev/null", "/etc/ld.so.preload"]
-    for source, target in content_binds(name, meta, env):
+    binds = content_binds(name, meta, env)
+    for _, source, target in binds:
         if os.path.isdir(source):
             bwrap += ["--bind", source, target]
+    content = {k for k, v in (meta.get("plugs") or {}).items() if isinstance(v, dict) and v.get("interface") == "content"}
+    plugs = (set(meta.get("plugs") or {}) | set(spec.get("plugs") or [])) - content | {plug for plug, _, _ in binds}
+    env["DROIDDECK_SNAP_PLUGS"] = " ".join(sorted(plugs))
+    bwrap += ["--bind", "/usr/local/bin/droiddeck-snapctl", "/usr/lib/snapd/snapctl"]
     bwrap += ["--chdir", os.getcwd() if os.path.isdir(os.getcwd()) else env["HOME"], "--clearenv"]
     for k, v in env.items():
         bwrap += ["--setenv", k, v]
