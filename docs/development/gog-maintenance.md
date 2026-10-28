@@ -67,6 +67,10 @@ The maintenance menu offers result verification for interrupted patch operations
 
 The same POSIX record lease excludes maintenance and game launches from DD or
 Steam. Session staging publishes the helper to existing Linux installations.
+Maintenance processes use full x87 precision. Some installers copy 64-bit data
+through x87 integer loads/stores; FEX's reduced-precision mode rounds those values
+and corrupts path strings. This override is local to maintenance and leaves the
+saved game performance profile unchanged. See [FEX issue #5827](https://github.com/FEX-Emu/FEX/issues/5827).
 
 ## References and validation
 
@@ -90,10 +94,15 @@ CI results, and actual-device evidence must be reported separately in the PR.
 Thor testing has verified a real Rayman 2 depot update, repair of deliberately
 corrupted Rayman content, process-death download recovery, shared Java/Linux
 launch exclusion, and a Neo Cab repair on external SD storage with its sidecar
-unchanged. Standalone patch acceptance remains blocked: the owned ELDERBORN
-1.08-to-1.09 patch reports `Path not found` inside the selected Proton environment,
-including when launched from its C: prefix. This is not successful patch evidence;
-the PR remains draft until a real standalone patch and subsequent launch pass.
+unchanged. The owned ELDERBORN 1.08-to-1.09 standalone patch initially failed with
+`Path not found`: a Wine file trace showed corrupted path characters under reduced
+x87 precision. With full precision, the actual patch completed through DD's normal
+installer UI, returned zero, and its files matched all 381 entries in target build
+`55745895026856358`. The saved performance configuration was byte-for-byte unchanged.
+The patched game then reached its main menu through the existing Steam shortcut;
+its process used the ordinary reduced-precision setting rather than the installer's
+full-precision override. The original sidecar remained identical and the operation
+journal cleared after verification.
 Rayman 2 also launches through its existing Steam shortcut after maintenance and
 reaches its interactive language menu. Its existing cloud download remains on
 the ordinary game-launch path; patch execution bypasses that path.
