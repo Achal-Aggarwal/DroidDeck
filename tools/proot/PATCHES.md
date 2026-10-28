@@ -114,6 +114,12 @@ Prototype (inert unless `PROOT_FASTPATH` is set; see `docs/development/proot-per
   SM8850 (adb shell): `stat` 25.3 -> 0.6 us, `open+close` 25.3 -> 0.9 us, ENOENT 22.9 -> 1.6 us,
   8 threads `stat`ing 89k -> 3.6M/s; equivalence suite (`bench/equiv.py`) byte-identical to proot.
 
+- `0022-fake-root-statx-owners.patch` - with `0013` dropping the `statx` exit stop, fake root never
+  rewrote the owner `statx` returns, so files read as owned by the app's uid while the process was
+  root. Rust's `metadata` and GNU `stat` use `statx`, so uutils' `test -w` (Ubuntu's `/usr/bin/test`)
+  said root could not write to its own directories and apt's AppStream hook never built Discover's
+  catalog. fake_id0 keeps that exit stop when it fakes ids; identity-only mode is unchanged.
+
 Old kernel fixes:
 
 - `0015-lost-fork-events.patch` - works around a problem reported on Xiaomi's msm 4.14 kernel:
