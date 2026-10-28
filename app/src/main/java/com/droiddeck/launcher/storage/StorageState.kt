@@ -140,9 +140,11 @@ object StorageState {
         FileOps.delete(dir)
     })
 
-    fun resetPrefix(context: Context, appId: Int, x64: Boolean = false) = act(context, "prefix-$appId", { _, fresh ->
-        val dir = fresh.games.firstOrNull { it.appId == appId && it.x64 == x64 }?.prefixDir ?: return@act false
-        FileOps.delete(dir)
+    fun resetPrefix(context: Context, game: GameUsage) = act(context, "prefix-${game.appId}", { _, fresh ->
+        val dir = fresh.games.firstOrNull { it.appId == game.appId && it.x64 == game.x64 && it.prefixDir?.path == game.prefixDir?.path }
+            ?.prefixDir ?: return@act false
+        check(FileOps.delete(dir)) { "cannot delete $dir" }
+        true
     })
 
     fun removeLeftover(context: Context, l: Leftover) = act(context, "leftover-${l.appId}", { _, fresh ->

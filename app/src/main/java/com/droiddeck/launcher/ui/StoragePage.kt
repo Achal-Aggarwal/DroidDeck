@@ -850,7 +850,7 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
     SubHeader(stringResource(R.string.storage_game_data), stringResource(R.string.storage_game_data_hint, gb(report.prefixes), gb(report.workshop), gb(report.shaders)), onBack)
     ActionStatus()
     if (sessionRunning) { Note(stringResource(R.string.storage_session_running)); Spacer(Modifier.height(4.dp)) }
-    val games = report.games.filter { it.data >= ONE_MB }.sortedByDescending { it.data }
+    val games = report.games.filter { it.data >= ONE_MB || it.prefixDir != null }.sortedByDescending { it.data }
     SectionTitle(stringResource(R.string.storage_data_installed), gb(games.sumOf { it.data }))
     ListCard {
         if (games.isEmpty()) Text(stringResource(R.string.storage_no_games), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -860,7 +860,7 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
                 action = {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SecondaryButton(stringResource(R.string.storage_clear_shaders), compact = true, enabled = !busy && g.shaders >= ONE_MB) { StorageState.clearShaders(ctx, g.appId, g.x64) }
-                        SecondaryButton(stringResource(R.string.storage_reset_prefix), compact = true, enabled = !busy && g.prefix >= ONE_MB) { confirmPrefix = g }
+                        SecondaryButton(stringResource(R.string.storage_reset_prefix), compact = true, enabled = !busy && g.prefixDir != null) { confirmPrefix = g }
                     }
                 },
             )
@@ -898,7 +898,7 @@ private fun GameDataView(report: StorageReport, sessionRunning: Boolean, onBack:
         ConfirmDialog(
             stringResource(R.string.storage_reset_prefix_title, gameName(g)),
             stringResource(R.string.storage_reset_prefix_confirm, gb(g.prefix)), stringResource(R.string.storage_reset_prefix),
-            onConfirm = { StorageState.resetPrefix(ctx, g.appId, g.x64) }, onDismiss = { confirmPrefix = null },
+            onConfirm = { StorageState.resetPrefix(ctx, g) }, onDismiss = { confirmPrefix = null },
         )
     }
     confirm?.let { l ->
