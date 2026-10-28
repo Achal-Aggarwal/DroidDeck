@@ -85,6 +85,19 @@ class GogMaintenance(unittest.TestCase):
         self.assertEqual("1", env["BL_DESKTOP"])
         self.assertNotIn("UNRELATED", env)
 
+    def test_maintenance_uses_full_x87_precision_without_changing_game_preferences(self):
+        target = mock.Mock(compatdata="/selected/prefix", appid="2526420341")
+        run = {"tools": lambda root: {"selected": ("/selected/proton", "proton")},
+               "mapping": lambda root: {}, "choose_tool": lambda *args: ("selected", None),
+               "environment": lambda env, *args, **kwargs: dict(env)}
+        with mock.patch.dict(G, {"target_for": lambda *args: (run, "/steam", target)}), \
+             mock.patch.dict(os.environ, {"FEX_X87REDUCEDPRECISION": "1"}):
+            command, env, prefix = G["runner"]("/game", "2526420341", "/game/game.exe")
+            self.assertEqual("/selected/proton/proton", command)
+            self.assertEqual("/selected/prefix", prefix)
+            self.assertEqual("0", env["FEX_X87REDUCEDPRECISION"])
+            self.assertEqual("1", os.environ["FEX_X87REDUCEDPRECISION"])
+
     def test_legacy_setup_uses_authentic_timestamp_and_support_layout(self):
         program = self.folder / "support/1/setup.exe"
         program.parent.mkdir(parents=True); program.write_bytes(b"MZtest")
