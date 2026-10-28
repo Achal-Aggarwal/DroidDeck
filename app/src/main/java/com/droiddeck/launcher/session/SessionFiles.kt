@@ -77,6 +77,8 @@ object SessionFiles {
             "usr/local/bin/droiddeck-emulators" to "usr/local/bin/droiddeck-emulators",
             "usr/local/bin/droiddeck-snap-run" to "usr/local/bin/droiddeck-snap-run",
             "usr/local/bin/droiddeck-snap-confine" to "usr/local/bin/droiddeck-snap-confine",
+            "usr/local/bin/droiddeck-snapctl" to "usr/local/bin/droiddeck-snapctl",
+            "usr/local/bin/droiddeck-systemd-run" to "usr/local/bin/systemd-run",
             "usr/local/bin/droiddeck-steam-shim" to "usr/local/bin/droiddeck-steam-shim",
             "usr/local/bin/droiddeck-steam-shortcuts" to "usr/local/bin/droiddeck-steam-shortcuts",
             "usr/local/bin/droiddeck-xbox" to "usr/local/bin/droiddeck-xbox",
