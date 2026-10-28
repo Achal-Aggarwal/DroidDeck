@@ -47,10 +47,14 @@ internal fun GogMaintenanceActions(game: InstalledStoreGame) {
     val check = GogMaintenance.checks[game.sidecar.id]
     LaunchedEffect(game.folder.path) { GogMaintenance.check(ctx, game) }
     LaunchedEffect(menu, active) {
-        if (menu) recoverablePatch = withContext(Dispatchers.IO) {
-            GogFiles.read(GogFiles.journal(game.folder))?.let {
-                it.optString("operation") == GogOperation.PATCH.name && it.optString("phase") in setOf("patch-starting", "patch-applying", "patch-uncertain")
-            } == true
+        if (menu) {
+            recoverablePatch = false
+            val result = withContext(Dispatchers.IO) { runCatching {
+                GogFiles.read(GogFiles.journal(game.folder))?.let {
+                    it.optString("operation") == GogOperation.PATCH.name && it.optString("phase") in setOf("patch-starting", "patch-applying", "patch-uncertain")
+                } == true
+            } }
+            result.onSuccess { recoverablePatch = it }.onFailure { error = it.message }
         }
     }
     fun prepare(operation: GogOperation, patch: GogOfflineDownload? = null) {

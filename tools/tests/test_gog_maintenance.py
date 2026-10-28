@@ -1,10 +1,13 @@
 import contextlib
+import concurrent.futures
+import errno
 import json
 import os
 from pathlib import Path
 import runpy
 import subprocess
 import sys
+import stat
 import tempfile
 import unittest
 from unittest import mock
@@ -34,6 +37,47 @@ class GogMaintenance(unittest.TestCase):
         patch.write_bytes(b"not PE")
         with self.assertRaises(ValueError):
             G["validate_installer"](self.folder, patch)
+
+    def test_overlapping_metadata_writes_publish_complete_documents(self):
+        target = self.control / "operation.json"
+        def publish(value):
+            G["write"](target, {"value": value, "payload": str(value) * 10000})
+            result = G["read"](target)
+            self.assertEqual(str(result["value"]) * 10000, result["payload"])
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(publish, range(32)))
+        self.assertEqual([], list(self.control.glob("*.new")))
+
+    def test_directory_sync_unsupported_by_external_storage_keeps_the_record(self):
+        original = os.fsync
+        def fsync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError(errno.EINVAL, "directory sync unsupported")
+            return original(fd)
+        target = self.control / "operation.json"
+        with mock.patch.object(G["os"], "fsync", side_effect=fsync):
+            G["write"](target, {"phase": "download"})
+        self.assertEqual("download", G["read"](target)["phase"])
+
+    def test_unsuccessful_registry_preparation_never_runs_the_installer(self):
+        download = self.control / "downloads"; download.mkdir()
+        patch = download / "patch.exe"; patch.write_bytes(b"MZtest")
+        prefix = self.folder / "prefix/pfx"
+        (prefix / "drive_c/windows/system32").mkdir(parents=True)
+        (prefix / "drive_c/windows/system32/reg.exe").write_bytes(b"MZreg")
+        (prefix / "system.reg").write_text("registry")
+        for result in ("timeout", "import-failed", "no-proton", "none", "unexpected"):
+            with self.subTest(result=result):
+                G["write"](self.control / "operation.json", {"phase": "patch-starting", "before": {"id": "1"}})
+                def setup_main():
+                    pass
+                with mock.patch.dict(setup_main.__globals__, {"apply_gog_registry": lambda *a, **k: result}), \
+                     mock.patch.dict(G, {"runner": lambda *a: ("/proton", {}, str(self.folder / "prefix")), "active": lambda *a: []}), \
+                     mock.patch.object(G["runpy"], "run_path", return_value={"main": setup_main}), \
+                     mock.patch.object(G["subprocess"], "Popen") as spawn:
+                    self.assertEqual(1, G["run_patch"](str(self.folder), "1", str(patch), "game.exe"))
+                spawn.assert_not_called()
+                self.assertIn("registry preparation failed", G["read"](self.control / "patch-status.json")["reason"])
 
     def test_only_recognized_inno_installers_get_the_gog_ui_compatibility_argument(self):
         path = self.folder / "patch.exe"

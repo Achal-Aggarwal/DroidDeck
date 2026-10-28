@@ -1380,7 +1380,8 @@ private fun CardMarker(item: CatalogItem, installed: Boolean, download: com.droi
     val pal = LocalPalette.current
     val small = 10.sp
     when {
-        item.store == Store.GOG && com.droiddeck.launcher.stores.gog.GogMaintenance.checks[item.id]?.state == com.droiddeck.launcher.stores.gog.GogMaintenance.State.AVAILABLE ->
+        item.store == Store.GOG && download != null -> Text("${download.percent}%", fontSize = small, fontWeight = FontWeight.Bold, color = pal.signal, maxLines = 1)
+        item.store == Store.GOG && installed && com.droiddeck.launcher.stores.gog.GogMaintenance.checks[item.id]?.state == com.droiddeck.launcher.stores.gog.GogMaintenance.State.AVAILABLE ->
             Text(stringResource(R.string.common_update), fontSize = small, fontWeight = FontWeight.Bold, color = pal.signal, maxLines = 1)
         installed -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             val ctx = LocalContext.current

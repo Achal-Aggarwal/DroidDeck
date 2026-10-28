@@ -70,9 +70,10 @@ internal object GogFallback {
             handle?.stage(DownloadStage.INSTALL); handle?.stageProgress((index + 1).toLong(), files.length().toLong())
             callback?.onProgress("Downloading: ${destination.name}", ((index + 1) * 100 / files.length()))
         }
+        val targetPaths = files.objects().mapTo(HashSet()) { it.getString("path").lowercase(java.util.Locale.ROOT) }
         for (old in plan.optJSONArray("oldFiles")?.objects().orEmpty()) {
             if (stop.get()) return
-            if (files.objects().none { it.getString("path").equals(old.getString("path"), true) } && GogFiles.matches(folder, old))
+            if (old.getString("path").lowercase(java.util.Locale.ROOT) !in targetPaths && GogFiles.matches(folder, old))
                 check(GogFiles.inside(folder, old.getString("path")).delete()) { "Could not remove obsolete GOG file" }
         }
     }

@@ -62,6 +62,19 @@ class GogMaintenanceTest {
         assertEquals(0, record.files.length())
     }
 
+    @Test fun offlineRefreshWithDlcRequiresAnAuthenticMatchingDepotBuild() {
+        val extracted = temporary.newFolder()
+        val app = File(extracted, "app").apply { mkdirs() }
+        val target = GogInstallRecord("1", "depot", build = "0000123", products = listOf("1", "2"))
+        assertThrows(IllegalArgumentException::class.java) { GogOffline.validateDepotInstaller(extracted, target) }
+        File(app, "goggame-1.info").writeText("""{"buildId":"0000999"}""")
+        assertThrows(IllegalArgumentException::class.java) { GogOffline.validateDepotInstaller(extracted, target) }
+        File(app, "goggame-1.info").writeText("""{"buildId":"0000123"}""")
+        GogOffline.validateDepotInstaller(extracted, target)
+        File(app, "goggame-1.info").delete()
+        GogOffline.validateDepotInstaller(extracted, target.copy(source = "offline", build = ""))
+    }
+
     @Test fun offlineRefreshRetainsTheExistingExecutableLayout() {
         val installed = temporary.newFolder()
         val extracted = temporary.newFolder()
@@ -75,6 +88,53 @@ class GogMaintenanceTest {
         val legacy = GogOffline.layout(flat, installed, "1", "app/game.exe")
         assertEquals(flat, legacy.source)
         assertEquals("app/", legacy.prefix)
+    }
+
+    @Test fun offlineRefreshDefersDlcCleanupAndRecordPublicationUntilDepotCompletion() {
+        val folder = temporary.newFolder()
+        StoreGameSidecar(Store.GOG, "1", "Game", "base.exe").write(folder)
+        val base = File(folder, "base.exe").apply { writeText("old base") }
+        val dlc = File(folder, "dlc.bin").apply { writeText("old DLC") }
+        val obsolete = File(folder, "old.bin").apply { writeText("obsolete") }
+        val save = File(folder, "save.dat").apply { writeText("player progress") }
+        fun entry(file: File, product: String) = JSONObject().put("path", file.name).put("size", file.length())
+            .put("md5", GogFiles.hash(file)).put("product", product).put("offset", 0).put("remotePath", file.name)
+        val old = GogInstallRecord("1", "depot", build = "old", products = listOf("1", "2"),
+            files = JSONArray().put(entry(base, "1")).put(entry(dlc, "2")).put(entry(obsolete, "1")))
+        old.write(folder)
+        val recordFile = File(GogFiles.dir(folder), "installed.json")
+        val record = recordFile.readText()
+        val extracted = temporary.newFolder()
+        val app = File(extracted, "app").apply { mkdirs() }
+        File(app, "goggame-1.info").writeText("""{"buildId":"new"}""")
+        val replacement = File(app, "base.exe").apply { writeText("new base") }
+        val expectedDlc = File(temporary.newFolder(), "dlc.bin").apply { writeText("new DLC") }
+        val target = old.copy(build = "new", files = JSONArray().put(entry(replacement, "1")).put(entry(expectedDlc, "2")))
+        GogOffline.applyRefresh(GogMaintenance.Proposal(folder, old, target, GogOperation.REFRESH, 0, 0), extracted, null, AtomicBoolean(false))
+        assertEquals("new base", base.readText())
+        assertEquals("old DLC", dlc.readText())
+        assertTrue(obsolete.isFile)
+        assertEquals(record, recordFile.readText())
+        val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))
+        val worker = Thread {
+            server.accept().use { client ->
+                val reader = client.getInputStream().bufferedReader()
+                while (!reader.readLine().isNullOrEmpty()) Unit
+                val content = expectedDlc.readBytes()
+                client.getOutputStream().apply {
+                    write("HTTP/1.1 206 Partial Content\r\nContent-Length: ${content.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                    write(content); flush()
+                }
+            }
+        }.apply { isDaemon = true; start() }
+        try {
+            GogFallback.transfer(folder, JSONObject().put("files", target.files).put("oldFiles", old.files)
+                .put("links", JSONObject().put("2", JSONArray().put("http://127.0.0.1:${server.localPort}"))), null, AtomicBoolean(false))
+            assertEquals("new DLC", dlc.readText())
+            assertFalse(obsolete.exists())
+            assertEquals("player progress", save.readText())
+            assertEquals(record, recordFile.readText())
+        } finally { server.close(); worker.join(2000) }
     }
 
     @Test fun authenticIdentityOverridesAStaleLegacyMarkerWithoutTreatingSchemaAsVersion() {

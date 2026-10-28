@@ -106,7 +106,7 @@ public final class GogDownloadManager {
         String builds1Json = httpGet(builds1Url, null);
         if (builds1Json == null) builds1Json = httpGet(builds1Url, token);
         if (builds1Json == null) throw new InstallException("No builds available for this game");
-        Gen1Outcome one = runGen1(ctx, game, token, builds1Json, installPath, cb, cancelled);
+        Gen1Outcome one = runGen1(ctx, game, token, builds1Json, installPath, cb, cancelled, lang);
         if (one.result != null || cancelled.get()) return one.result;
         if (!"NO_CS_BUILDS".equals(one.error)) throw new InstallException("Download failed: " + one.error);
         cb.onProgress("No Galaxy builds; fetching the installer…", 12);
@@ -250,7 +250,11 @@ public final class GogDownloadManager {
             if (anyFailed.get()) { out.error = "one or more chunks failed to download"; return out; }
 
             cb.onProgress("Finishing…", 96);
-            GogMaintenance.captureDepot(game.gameId, installPath, gm.buildId, buildsJson, manifest, new JSONArray(depotJsons), resolved);
+            try {
+                GogMaintenance.captureDepot(game.gameId, installPath, gm.buildId, buildsJson, manifest, new JSONArray(depotJsons), resolved);
+            } catch (Exception e) {
+                cb.onLog("gog: maintenance inventory not recorded: " + e.getMessage());
+            }
             writeFile(new File(installPath, MARKER), ("{\"gameId\":\"" + game.gameId + "\",\"buildId\":\"" + gm.buildId + "\"}").getBytes("UTF-8"));
             deleteCounted(new File(installPath, ".gog_chunks"), cb);
             String clientId = manifest.optString("clientId", null);
@@ -329,7 +333,7 @@ public final class GogDownloadManager {
 
     private static final class Gen1Outcome { Result result; String error; }
 
-    private static Gen1Outcome runGen1(Context ctx, GogGame game, String token, String buildsJson, File installPath, Callback cb, AtomicBoolean cancelled) {
+    private static Gen1Outcome runGen1(Context ctx, GogGame game, String token, String buildsJson, File installPath, Callback cb, AtomicBoolean cancelled, String language) {
         Gen1Outcome out = new Gen1Outcome();
         try {
             JSONObject builds = new JSONObject(buildsJson);
@@ -348,7 +352,7 @@ public final class GogDownloadManager {
             if (manifestStr == null) { out.error = "manifest decompress failed"; return out; }
             JSONObject manifest = new JSONObject(manifestStr);
             if (manifest.has("product")) {
-                out.result = GogMaintenance.installContent(ctx, game, installPath, builds, StoreLanguage.preferredCode(ctx), cb, cancelled);
+                out.result = GogMaintenance.installContent(ctx, game, installPath, builds, language, cb, cancelled);
                 return out;
             }
             JSONArray depots = manifest.optJSONArray("depot");

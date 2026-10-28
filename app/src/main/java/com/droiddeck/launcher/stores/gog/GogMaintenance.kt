@@ -114,6 +114,17 @@ internal object GogMaintenance {
             require(operation != GogOperation.REPAIR) { "This offline installation has no depot manifest. Use a full offline refresh to restore its files." }
             val download = GogContent.resolveDownload(offlineInstaller(GogContent.product(old.id, token).getJSONObject("downloads"), old.language), token)
             if (resume) require(journal?.optString("downloadId") == download.id && journal.optString("downloadVersion") == download.version) { "The previous offline installer is no longer available; select a new full offline refresh" }
+            if (old.products.any { it != old.id }) {
+                val pinned = journal?.optJSONObject("target")?.optString("build").orEmpty()
+                val build = GogBuild.select(GogContent.builds(old.id, token), pinned = pinned, branch = old.branch)
+                    ?: error("No depot build is available to preserve installed DLC during this refresh. Use Update instead.")
+                val target = GogContent.snapshot(old, build, token)
+                GogFiles.validate(target.files, folder)
+                val native = GogNative.isAvailable()
+                val remaining = GogEstimate.calculate(folder, old, target, JSONArray(), reuseChunks = native)
+                return Proposal(folder, old, target, GogOperation.REFRESH, Math.addExact(download.size, remaining.download),
+                    Math.addExact(Math.multiplyExact(download.size, 3), remaining.required), download, fullFiles = !native)
+            }
             val target = old.copy(source = "offline", build = "", generation = 0, version = download.version, manifest = JSONObject(), files = JSONArray(), verified = true)
             return Proposal(folder, old, target, GogOperation.REFRESH, download.size, download.size * 3, download)
         }
@@ -259,14 +270,16 @@ internal object GogMaintenance {
                         ensureIdle(app, folder)
                         sidecar.copy(state = StoreGameSidecar.STATE_UPDATING).write(folder)
                         GogFiles.write(GogFiles.journal(folder), journal.put("phase", "applying"))
-                        if (proposal.operation == GogOperation.REFRESH) GogOffline.refresh(app, proposal, handle, cancelled)
-                        else transfer(app, proposal, handle, cancelled)
+                        if (proposal.operation == GogOperation.REFRESH) {
+                            GogOffline.refresh(app, proposal, handle, cancelled)
+                            if (!cancelled.get() && proposal.target.source == "depot") transfer(app, proposal, handle, cancelled)
+                        } else transfer(app, proposal, handle, cancelled)
                         if (cancelled.get()) return null
                     }
                 }
             }
             if (cancelled.get()) return null
-            val target = GogInstallRecord.read(folder)?.takeIf { proposal.operation == GogOperation.PATCH || proposal.operation == GogOperation.REFRESH } ?: proposal.target
+            val target = GogInstallRecord.read(folder)?.takeIf { proposal.operation == GogOperation.PATCH || proposal.operation == GogOperation.REFRESH && proposal.target.source != "depot" } ?: proposal.target
             check(target.verified) { "The patch completed, but its resulting version could not be verified. Inspect the game or use a full offline refresh." }
             target.write(folder)
             StoreInstalls.complete(app, folder, sidecar.copy(installVersion = target.build.ifBlank { target.version }, state = StoreGameSidecar.STATE_INSTALLED))

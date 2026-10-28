@@ -18,6 +18,13 @@ extern "C" fn cancelled(opaque: *mut libc::c_void) -> libc::c_int {
     unsafe { (*(opaque as *const AtomicBool)).load(Ordering::Relaxed) as libc::c_int }
 }
 
+fn http_client(read_timeout: std::time::Duration) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(20))
+        .read_timeout(read_timeout)
+        .build().map_err(|e| e.to_string())
+}
+
 pub fn inside(root: &Path, relative: &str) -> Result<PathBuf, String> {
     if relative.is_empty() || relative.contains(['\\', ':', '\0']) || relative.split('/').any(|p| p.is_empty() || p == "." || p == "..") { return Err("invalid GOG path".into()); }
     let mut out = root.to_path_buf();
@@ -229,7 +236,7 @@ pub fn run(req: &GogRequest, cancel: &AtomicBool, events: &dyn GogEvents) -> Gog
         fs::create_dir_all(&stages).map_err(|e| e.to_string())?;
         let mut transfer = Transfer {
             runtime: tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|e| e.to_string())?,
-            client: reqwest::Client::builder().timeout(std::time::Duration::from_secs(60)).build().map_err(|e| e.to_string())?,
+            client: http_client(std::time::Duration::from_secs(60))?,
             cancel, events, wire: 0, total: num(&plan, "downloadBytes"),
         };
         let mut done = 0u32; let mut reused = 0u64; let mut applied = 0u64;
@@ -367,6 +374,28 @@ mod tests {
         }
     }
     impl Drop for Server { fn drop(&mut self) { self.stop.store(true, Ordering::Relaxed); if let Some(thread) = self.thread.take() { thread.join().unwrap(); } } }
+
+    #[test]
+    fn continuing_download_may_exceed_the_read_timeout_in_total() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
+            let mut request = Vec::new(); let mut byte = [0u8];
+            while stream.read(&mut byte).unwrap() > 0 { request.push(byte[0]); if request.ends_with(b"\r\n\r\n") { break; } }
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n").unwrap();
+            for byte in b"abcd" {
+                stream.write_all(&[*byte]).unwrap(); stream.flush().unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(400));
+            }
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let client = http_client(std::time::Duration::from_secs(1)).unwrap();
+        let body = runtime.block_on(async { client.get(url).send().await.unwrap().bytes().await.unwrap() });
+        assert_eq!(&body[..], b"abcd");
+        server.join().unwrap();
+    }
 
     fn chunk(data: &[u8]) -> (Value, String, Vec<u8>) {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default()); encoder.write_all(data).unwrap();

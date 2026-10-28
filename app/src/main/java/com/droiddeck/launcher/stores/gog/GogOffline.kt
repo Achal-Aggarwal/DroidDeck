@@ -26,6 +26,14 @@ internal object GogOffline {
         return if (app.isDirectory) Layout(if (nested) extracted else app, "") else Layout(extracted, if (nested) "app/" else "")
     }
 
+    internal fun validateDepotInstaller(extracted: File, target: GogInstallRecord) {
+        if (target.source != "depot") return
+        val content = File(extracted, "app").takeIf { it.isDirectory } ?: extracted
+        require(GogInstallRecord.authenticBuild(content, target.id) == target.build && target.build.isNotBlank()) {
+            "The offline installer does not identify the selected depot build. Use Update to preserve installed DLC."
+        }
+    }
+
     private fun download(context: Context, proposal: GogMaintenance.Proposal, handle: DownloadQueue.JobHandle, stop: AtomicBoolean): File {
         val patch = proposal.patch ?: error("GOG download selection is missing")
         val root = File(GogFiles.dir(proposal.folder), "downloads").apply { mkdirs() }
@@ -68,6 +76,11 @@ internal object GogOffline {
             extraBinds = StoreInstallRoot.externalBindSpecs(context), cancelled = stop, logName = "gog-refresh", onLine = handle::log)
         if (stop.get()) return
         check(rc == 0) { "GOG installer extraction failed (exit $rc)" }
+        applyRefresh(proposal, extracted, handle, stop)
+    }
+
+    internal fun applyRefresh(proposal: GogMaintenance.Proposal, extracted: File, handle: DownloadQueue.JobHandle?, stop: AtomicBoolean) {
+        validateDepotInstaller(extracted, proposal.target)
         val sidecar = StoreGameSidecar.read(proposal.folder) ?: error("The original GOG settings are missing")
         val layout = layout(extracted, proposal.folder, proposal.before.id, sidecar.exe)
         val files = layout.source.walkTopDown().onEnter { directory ->
@@ -77,7 +90,7 @@ internal object GogOffline {
             check(!java.nio.file.Files.isSymbolicLink(file.toPath()))
             JSONObject().put("path", layout.prefix + file.relativeTo(layout.source).invariantSeparatorsPath)
                 .put("size", if (file.isDirectory) 0 else file.length()).put("directory", file.isDirectory)
-                .put("md5", if (file.isDirectory) "" else GogFiles.hash(file)) to file
+                .put("md5", if (file.isDirectory) "" else GogFiles.hash(file)).put("product", proposal.before.id) to file
         }.toList()
         check(files.any { !it.first.getBoolean("directory") }) { "GOG installer contained no game files" }
         val inventory = JSONArray(files.map { it.first })
@@ -92,11 +105,14 @@ internal object GogOffline {
                 destination.parentFile!!.mkdirs()
                 GogFiles.replace(sourceFile, destination)
             }
-            handle.stageProgress((index + 1).toLong(), files.size.toLong())
+            handle?.stageProgress((index + 1).toLong(), files.size.toLong())
         }
-        for (old in proposal.before.files.objects()) if (files.none { it.first.getString("path").equals(old.getString("path"), true) } && GogFiles.matches(proposal.folder, old))
-            check(GogFiles.inside(proposal.folder, old.getString("path")).delete())
-        installed.write(proposal.folder)
+        if (proposal.target.source != "depot") {
+            val targetPaths = files.mapTo(HashSet()) { it.first.getString("path").lowercase(java.util.Locale.ROOT) }
+            for (old in proposal.before.files.objects()) if (old.getString("path").lowercase(java.util.Locale.ROOT) !in targetPaths && GogFiles.matches(proposal.folder, old))
+                check(GogFiles.inside(proposal.folder, old.getString("path")).delete())
+            installed.write(proposal.folder)
+        }
     }
 
     fun apply(context: Context, proposal: GogMaintenance.Proposal, handle: DownloadQueue.JobHandle, stop: AtomicBoolean, onApplying: () -> Unit): Boolean {
