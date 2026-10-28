@@ -57,63 +57,84 @@ static void run_idle(void) {
 
 static void tick(int64_t t) { clock_ns = t; on_vsync(t); }
 
+static void arrive(int64_t after_ns) { clock_ns += after_ns; schedule_render(); }
+
 int main(void) {
-    const int64_t refresh = 6944444;
+    const int64_t refresh = 6944444, ms = 1000000;
     int64_t t = 1000000000LL;
+    g_refresh_ns = refresh;
     tick(t);
     assert(renders == 0);
 
     /* a new frame is drawn when it arrives */
-    clock_ns += 2000000;
-    schedule_render();
+    arrive(2 * ms);
     assert(idles_added == 1 && renders == 0);
     run_idle();
     assert(renders == 1 && g_pace.commit_renders == 1 && g_render_idle == NULL);
 
-    /* a second frame in the same refresh waits for the tick */
-    clock_ns += 1000000;
-    schedule_render();
+    /* a second frame in the same refresh is left for the next arrival, which is drawn when it arrives */
+    arrive(1 * ms);
     assert(idles_added == 1);
     tick(t += refresh);
-    assert(renders == 2 && g_pace.commit_renders == 1);
+    assert(renders == 1);
+    arrive(2 * ms);
+    assert(idles_added == 2);
+    run_idle();
+    assert(renders == 2 && g_pace.commit_renders == 2);
 
-    /* when the tick comes first, the queued draw does nothing */
+    /* a frame no other frame follows is drawn at the tick after next */
+    arrive(1 * ms);
     tick(t += refresh);
     assert(renders == 2);
-    clock_ns += 1000000;
-    schedule_render();
-    assert(idles_added == 2);
     tick(t += refresh);
-    assert(renders == 3);
+    assert(renders == 3 && g_pace.commit_renders == 2);
+
+    /* one frame per refresh, starting right after a tick draw, settles on drawing every frame when it arrives */
+    arrive(2 * ms);
+    assert(idles_added == 2);
+    for (int i = 0; i < 10; i++) {
+        tick(t += refresh);
+        arrive(2 * ms);
+        run_idle();
+    }
+    assert(renders == 13 && g_pace.commit_renders == 12);
+
+    /* a window, effect or headset change at the tick draws the waiting frame now */
+    arrive(1 * ms);
+    window_requests = 1;
+    tick(t += refresh);
+    window_requests = 0;
+    assert(renders == 14 && g_pace.commit_renders == 12);
+
+    /* a draw queued before the tick still draws the frame once */
+    tick(t += refresh);
+    arrive(1 * ms);
+    tick(t += refresh);
+    assert(renders == 14);
     run_idle();
-    assert(renders == 3 && g_pace.commit_renders == 1);
+    assert(renders == 15 && g_pace.commit_renders == 13);
+    tick(t += refresh);
+    assert(renders == 15);
 
     /* paced output, frame generation, the switch off and streaming keep drawing on the tick */
+    const int idles = idles_added;
     for (int c = 0; c < 4; c++) {
         tick(t += refresh);
         if (c == 0) g_release_unpaced = 0;
         if (c == 1) framegen = 1;
         if (c == 2) g_render_on_commit = 0;
         if (c == 3) atomic_store(&g_stream_on, 1);
-        clock_ns += 1000000;
-        schedule_render();
-        assert(idles_added == 2);
-        g_release_unpaced = 1; framegen = 0; g_render_on_commit = 1; atomic_store(&g_stream_on, 0);
+        arrive(1 * ms);
+        assert(idles_added == idles);
         tick(t += refresh);
-        assert(renders == 4 + c);
+        g_release_unpaced = 1; framegen = 0; g_render_on_commit = 1; atomic_store(&g_stream_on, 0);
+        assert(renders == 16 + c);
     }
-
-    tick(t += refresh);
-    clock_ns += 1000000;
-    schedule_render();
-    assert(idles_added == 3);
-    run_idle();
-    assert(renders == 8 && g_pace.commit_renders == 2);
 
     /* without screen ticks the fallback timer still draws */
     clock_ns += 200000000LL;
     schedule_render();
-    assert(idles_added == 3 && g_fallback_armed == 1 && timers_armed == 1);
+    assert(idles_added == idles && g_fallback_armed == 1 && timers_armed == 1);
     puts("PASS");
     return 0;
 }
@@ -129,7 +150,7 @@ class RenderOnCommitTest(unittest.TestCase):
         source = SOURCE.read_text()
         render = extract_function(source, 'render_scene')
         self.assertIn('g_rendered_tick_ns = g_tick_vsync_ns;', render)
-        functions = ('render_on_commit', 'schedule_render', 'scene_waits_for_game', 'on_commit_idle', 'on_vsync')
+        functions = ('commit_renders_on', 'render_on_commit', 'schedule_render', 'scene_waits_for_game', 'on_commit_idle', 'on_vsync')
         harness = PREAMBLE + '\n'.join(extract_function(source, name) for name in functions) + CHECKS
         with tempfile.TemporaryDirectory(prefix='droiddeck-render-on-commit-') as folder:
             path = Path(folder)

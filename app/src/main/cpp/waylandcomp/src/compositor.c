@@ -2302,9 +2302,12 @@ static int on_fallback_timer(void *data) {
 
 /* A new frame is drawn when it arrives instead of at the next screen tick, at most once per refresh,
    while frames go straight back to the game (no compositor limit), without streaming or frame generation. */
+static int commit_renders_on(void) {
+    return g_render_on_commit && g_release_unpaced && !atomic_load(&g_stream_on) && !vkp_framegen_active();
+}
+
 static int render_on_commit(void) {
-    return g_render_on_commit && g_release_unpaced && !g_render_idle && g_rendered_tick_ns != g_tick_vsync_ns &&
-           !atomic_load(&g_stream_on) && !vkp_framegen_active();
+    return commit_renders_on() && !g_render_idle && g_rendered_tick_ns != g_tick_vsync_ns;
 }
 
 static void schedule_render(void) {
@@ -2352,9 +2355,14 @@ static void on_vsync(int64_t frame_time_ns) {
     }
     g_last_vsync_ns = now;
     g_tick_vsync_ns = frame_time_ns;
-    if (vkp_apply_window_request()) g_dirty = 1;
-    if (vkp_effects_sync()) g_dirty = 1;
-    if (vkp_cardboard_pose_changed()) g_dirty = 1;
+    int tick_change = 0;
+    if (vkp_apply_window_request()) tick_change = 1;
+    if (vkp_effects_sync()) tick_change = 1;
+    if (vkp_cardboard_pose_changed()) tick_change = 1;
+    if (tick_change) g_dirty = 1;
+    /* A frame that arrived after this refresh was already drawn is left for the next arrival to draw;
+       drawing it here would block that arrival too and keep every frame waiting for the tick. */
+    if (!tick_change && commit_renders_on() && g_dirty_since_ns && now - g_dirty_since_ns < g_refresh_ns) return;
     if (g_dirty && !scene_waits_for_game(now)) render_scene();
 }
 
