@@ -3085,6 +3085,8 @@
     <string name="library_in">लाइब्रेरी में</string>
     <string name="xbox_filter_show">दिखाएँ</string>
     <string name="itch_collections">संग्रह</string>
+    <string name="stores_itch_updates_found">उपलब्ध अपडेट: %1$d</string>
+    <string name="stores_itch_update_replaced">डेवलपर ने इस बिल्ड को %1$s से बदल दिया है। क्या उस पर अपडेट करें?</string>
     <string name="xbox_filter_cloud">क्लाउड</string>
     <string name="stores_xbox_cloud_settings">क्लाउड सेटिंग्स</string>
     <string name="apps_search_hint">ऐप खोजें</string>

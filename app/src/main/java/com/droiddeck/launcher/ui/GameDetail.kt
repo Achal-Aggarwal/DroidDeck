@@ -205,7 +205,12 @@ internal fun GameDetail(
             GameHero(
                 title, item, installed, game,
                 Modifier.fillMaxWidth().heightIn(min = if (narrow) 170.dp else 210.dp).onGloballyPositioned { StoresMotion.heroAt = it.boundsInRoot() },
-                corner = { if (!s.shortcutPicker) RemoveButton(title, game, installed, a) },
+                corner = {
+                    if (!s.shortcutPicker) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (installed != null && installed.sidecar.store == Store.ITCH) ItchCheckButton(installed)
+                        RemoveButton(title, game, installed, a)
+                    }
+                },
                 scores = scores.takeIf { !stacked },
             ) {
                 HeroEyebrow(source, game, item, installed, download?.location ?: failed?.location)
@@ -357,6 +362,7 @@ internal fun GameActions(
                     GameShortcutMenu(game, a)
                     EditArtButton(game)
                 }
+                if (store == Store.ITCH && installed != null) ItchUpdateButton(installed, download == null && StoresState.uninstalling[installed.key] == null)
                 if (store == Store.XBOX && id != null) XboxInstalledStream(id, game?.name ?: item?.title.orEmpty(), item)
                 if (store == Store.XBOX && installed != null && id != null) {
                     SecondaryButton(stringResource(R.string.stores_xbox_update), enabled = download == null && !XboxRuntime.isActive(id)) {
@@ -529,7 +535,7 @@ private fun EditArtButton(g: Library.SteamGame) {
 }
 
 @Composable
-private fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, id: String, danger: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun IconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, id: String, danger: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val pal = LocalPalette.current
     val src = remember { MutableInteractionSource() }

@@ -3060,6 +3060,8 @@
     <string name="library_in">Dalam Pustaka</string>
     <string name="xbox_filter_show">Tunjukkan</string>
     <string name="itch_collections">Koleksi</string>
+    <string name="stores_itch_updates_found">Kemas kini tersedia: %1$d</string>
+    <string name="stores_itch_update_replaced">Pembangun telah menggantikan binaan ini dengan %1$s. Kemas kini kepadanya?</string>
     <string name="xbox_filter_cloud">Awan</string>
     <string name="stores_xbox_cloud_settings">Tetapan awan</string>
     <string name="apps_search_hint">Cari apl</string>

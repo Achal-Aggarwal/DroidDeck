@@ -3087,6 +3087,8 @@
     <string name="library_in">Kütüphane içinde</string>
     <string name="xbox_filter_show">Göster</string>
     <string name="itch_collections">Koleksiyonlar</string>
+    <string name="stores_itch_updates_found">Mevcut güncellemeler: %1$d</string>
+    <string name="stores_itch_update_replaced">Geliştirici bu sürümü %1$s ile değiştirdi. Ona güncellensin mi?</string>
     <string name="xbox_filter_cloud">Bulut</string>
     <string name="stores_xbox_cloud_settings">Bulut ayarları</string>
     <string name="apps_search_hint">Uygulama ara</string>

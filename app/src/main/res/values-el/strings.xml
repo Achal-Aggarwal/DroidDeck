@@ -3085,6 +3085,8 @@
     <string name="library_in">Στη Βιβλιοθήκη</string>
     <string name="xbox_filter_show">Εμφάνιση</string>
     <string name="itch_collections">Συλλογές</string>
+    <string name="stores_itch_updates_found">Διαθέσιμες ενημερώσεις: %1$d</string>
+    <string name="stores_itch_update_replaced">Ο προγραμματιστής αντικατέστησε αυτήν την έκδοση με %1$s. Να γίνει ενημέρωση σε αυτήν;</string>
     <string name="xbox_filter_cloud">Cloud</string>
     <string name="stores_xbox_cloud_settings">Ρυθμίσεις cloud</string>
     <string name="apps_search_hint">Αναζήτηση εφαρμογών</string>

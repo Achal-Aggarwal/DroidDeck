@@ -3085,6 +3085,8 @@
     <string name="library_in">I Bibliotek</string>
     <string name="xbox_filter_show">Visa</string>
     <string name="itch_collections">Samlingar</string>
+    <string name="stores_itch_updates_found">Uppdateringar tillgängliga: %1$d</string>
+    <string name="stores_itch_update_replaced">Utvecklaren har ersatt den här versionen med %1$s. Uppdatera till den?</string>
     <string name="xbox_filter_cloud">Moln</string>
     <string name="stores_xbox_cloud_settings">Molninställningar</string>
     <string name="apps_search_hint">Sök appar</string>

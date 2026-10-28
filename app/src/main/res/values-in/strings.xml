@@ -3075,6 +3075,8 @@
     <string name="library_in">Di Pustaka</string>
     <string name="xbox_filter_show">Tampilkan</string>
     <string name="itch_collections">Koleksi</string>
+    <string name="stores_itch_updates_found">Pembaruan tersedia: %1$d</string>
+    <string name="stores_itch_update_replaced">Pengembang mengganti build ini dengan %1$s. Perbarui ke build itu?</string>
     <string name="xbox_filter_cloud">Cloud</string>
     <string name="stores_xbox_cloud_settings">Pengaturan cloud</string>
     <string name="apps_search_hint">Cari aplikasi</string>

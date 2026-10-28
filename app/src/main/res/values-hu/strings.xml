@@ -3085,6 +3085,8 @@
     <string name="library_in">A könyvtárban</string>
     <string name="xbox_filter_show">Megjelenítés</string>
     <string name="itch_collections">Gyűjtemények</string>
+    <string name="stores_itch_updates_found">Elérhető frissítések: %1$d</string>
+    <string name="stores_itch_update_replaced">A fejlesztő lecserélte ezt a buildet erre: %1$s. Frissít rá?</string>
     <string name="xbox_filter_cloud">Felhő</string>
     <string name="stores_xbox_cloud_settings">Felhőbeállítások</string>
     <string name="apps_search_hint">Alkalmazások keresése</string>

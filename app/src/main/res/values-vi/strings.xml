@@ -3060,6 +3060,8 @@
     <string name="library_in">Trong Thư viện</string>
     <string name="xbox_filter_show">Hiển thị</string>
     <string name="itch_collections">Bộ sưu tập</string>
+    <string name="stores_itch_updates_found">Có bản cập nhật: %1$d</string>
+    <string name="stores_itch_update_replaced">Nhà phát triển đã thay bản dựng này bằng %1$s. Cập nhật lên bản đó?</string>
     <string name="xbox_filter_cloud">Đám mây</string>
     <string name="stores_xbox_cloud_settings">Cài đặt đám mây</string>
     <string name="apps_search_hint">Tìm ứng dụng</string>

@@ -3153,6 +3153,8 @@
     <string name="library_in">У бібліотеці</string>
     <string name="xbox_filter_show">Показати</string>
     <string name="itch_collections">Колекції</string>
+    <string name="stores_itch_updates_found">Доступні оновлення: %1$d</string>
+    <string name="stores_itch_update_replaced">Розробник замінив цю збірку на %1$s. Оновити до неї?</string>
     <string name="xbox_filter_cloud">Хмара</string>
     <string name="stores_xbox_cloud_settings">Налаштування хмари</string>
     <string name="apps_search_hint">Пошук застосунків</string>

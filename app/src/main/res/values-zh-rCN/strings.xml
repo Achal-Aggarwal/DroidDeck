@@ -3068,6 +3068,8 @@
     <string name="library_in">已在游戏库</string>
     <string name="xbox_filter_show">显示</string>
     <string name="itch_collections">收藏集</string>
+    <string name="stores_itch_updates_found">可用更新：%1$d</string>
+    <string name="stores_itch_update_replaced">开发者已将此版本替换为 %1$s。要更新到该版本吗？</string>
     <string name="xbox_filter_cloud">云</string>
     <string name="stores_xbox_cloud_settings">云设置</string>
     <string name="apps_search_hint">搜索应用</string>

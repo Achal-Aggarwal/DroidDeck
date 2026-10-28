@@ -91,6 +91,7 @@ import com.droiddeck.launcher.stores.download.DownloadEntry
 import com.droiddeck.launcher.stores.formatBytes
 import com.droiddeck.launcher.stores.itch.ItchCollection
 import com.droiddeck.launcher.stores.itch.ItchCollections
+import com.droiddeck.launcher.stores.itch.ItchUpdates
 import com.droiddeck.launcher.stores.retainOrder
 import com.droiddeck.launcher.stores.xbox.XboxLibraryFilter
 import com.droiddeck.launcher.stores.sortGames
@@ -194,7 +195,10 @@ internal fun LibraryPage(s: FrontEndState, a: FrontEndActions, selected: String,
     val source = LibraryView.source.takeIf { it == LIBRARY_ALL || it in sources } ?: LIBRARY_ALL
     val q = LibraryView.query.trim().lowercase()
     val xboxFilter = if (source == Store.XBOX.id) XboxLibraryFilter.current else XboxLibraryFilter.ALL
-    LaunchedEffect(source, itchSignedIn) { if (source == Store.ITCH.id && itchSignedIn) ItchCollections.load(ctx) }
+    LaunchedEffect(source, itchSignedIn) { if (source == Store.ITCH.id && itchSignedIn) {
+        ItchCollections.load(ctx)
+        ItchUpdates.check(ctx)
+    } }
     val collection = if (source == Store.ITCH.id) ItchCollections.chosen() else null
     val pool = if (collection == null) all else collectionEntries(all, ItchCollections.gamesOf(collection.id).orEmpty())
     val matching = pool.filter {
@@ -582,6 +586,7 @@ internal fun LibraryMarker(e: LibraryEntry, download: DownloadEntry?) {
         download != null -> Text("${download.percent}%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pal.signal, maxLines = 1)
         e.item != null && StoresState.isUnfinished(e.item) -> Text(stringResource(R.string.stores_resume), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pal.signal, maxLines = 1)
         else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            if (e.installed && e.storeKey?.let { it in ItchUpdates.available } == true) Text(stringResource(R.string.common_update), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = pal.signal, maxLines = 1)
             if (size != null && size > 0) Text(formatBytes(size), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
             if (!e.installed) Icon(Icons.Outlined.Download, stringResource(R.string.stores_section_not_installed), tint = Color.White, modifier = Modifier.size(12.dp))
         }

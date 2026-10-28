@@ -3085,6 +3085,8 @@
     <string name="library_in">I Bibliotek</string>
     <string name="xbox_filter_show">Vis</string>
     <string name="itch_collections">Samlinger</string>
+    <string name="stores_itch_updates_found">Opdateringer tilgængelige: %1$d</string>
+    <string name="stores_itch_update_replaced">Udvikleren har erstattet denne version med %1$s. Opdater til den?</string>
     <string name="xbox_filter_cloud">Sky</string>
     <string name="stores_xbox_cloud_settings">Skyindstillinger</string>
     <string name="apps_search_hint">Søg i apps</string>

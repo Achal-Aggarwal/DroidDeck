@@ -3085,6 +3085,8 @@
     <string name="library_in">Kirjastossa</string>
     <string name="xbox_filter_show">Näytä</string>
     <string name="itch_collections">Kokoelmat</string>
+    <string name="stores_itch_updates_found">Päivityksiä saatavilla: %1$d</string>
+    <string name="stores_itch_update_replaced">Kehittäjä korvasi tämän version tiedostolla %1$s. Päivitetäänkö siihen?</string>
     <string name="xbox_filter_cloud">Pilvi</string>
     <string name="stores_xbox_cloud_settings">Pilviasetukset</string>
     <string name="apps_search_hint">Hae sovelluksia</string>

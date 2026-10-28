@@ -3060,6 +3060,8 @@
     <string name="library_in">อยู่ในไลบรารี</string>
     <string name="xbox_filter_show">แสดง</string>
     <string name="itch_collections">คอลเลกชัน</string>
+    <string name="stores_itch_updates_found">มีอัปเดตพร้อมใช้งาน: %1$d</string>
+    <string name="stores_itch_update_replaced">ผู้พัฒนาได้แทนที่บิลด์นี้ด้วย %1$s ต้องการอัปเดตเป็นบิลด์นั้นไหม</string>
     <string name="xbox_filter_cloud">คลาวด์</string>
     <string name="stores_xbox_cloud_settings">การตั้งค่าคลาวด์</string>
     <string name="apps_search_hint">ค้นหาแอป</string>

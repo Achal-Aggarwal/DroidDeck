@@ -3119,6 +3119,8 @@
     <string name="library_in">Na Biblioteca</string>
     <string name="xbox_filter_show">Mostrar</string>
     <string name="itch_collections">Coleções</string>
+    <string name="stores_itch_updates_found">Atualizações disponíveis: %1$d</string>
+    <string name="stores_itch_update_replaced">O desenvolvedor substituiu esta versão por %1$s. Atualizar para ela?</string>
     <string name="xbox_filter_cloud">Nuvem</string>
     <string name="stores_xbox_cloud_settings">Configurações da nuvem</string>
     <string name="apps_search_hint">Pesquisar apps</string>

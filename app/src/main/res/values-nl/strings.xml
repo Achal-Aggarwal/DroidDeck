@@ -3085,6 +3085,8 @@
     <string name="library_in">In Bibliotheek</string>
     <string name="xbox_filter_show">Weergeven</string>
     <string name="itch_collections">Collecties</string>
+    <string name="stores_itch_updates_found">Beschikbare updates: %1$d</string>
+    <string name="stores_itch_update_replaced">De ontwikkelaar heeft deze build vervangen door %1$s. Bijwerken naar die build?</string>
     <string name="xbox_filter_cloud">Cloud</string>
     <string name="stores_xbox_cloud_settings">Cloudinstellingen</string>
     <string name="apps_search_hint">Apps zoeken</string>

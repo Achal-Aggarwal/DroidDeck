@@ -191,7 +191,10 @@ object StoresState {
             backend?.signOut(app)
             if (store == Store.GOG) com.droiddeck.launcher.stores.gog.GogComet.replaceAccount { StoreAccounts.clear(app, store) }
             else if (store != Store.XBOX || backend == null) StoreAccounts.clear(app, store)
-            if (store == Store.ITCH) com.droiddeck.launcher.stores.itch.ItchCollections.clear()
+            if (store == Store.ITCH) {
+                com.droiddeck.launcher.stores.itch.ItchCollections.clear()
+                com.droiddeck.launcher.stores.itch.ItchUpdates.clear(app)
+            }
             main.post {
                 if (store == Store.XBOX && StoreAccounts.signedInAs(app, store) != null) return@post
                 accounts.remove(store); library.remove(store); status.remove(store); problems.remove(store); libraryAsked.remove(store)
@@ -282,6 +285,7 @@ object StoresState {
                 main.post {
                     installed = installed.filterNot { it.folder.absolutePath == game.folder.absolutePath }
                     uninstalling.remove(key)
+                    if (game.sidecar.store == Store.ITCH) com.droiddeck.launcher.stores.itch.ItchUpdates.applied(app, key)
                 }
             })
             main.post(onDone)

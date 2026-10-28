@@ -3119,6 +3119,8 @@
     <string name="library_in">În Bibliotecă</string>
     <string name="xbox_filter_show">Afișează</string>
     <string name="itch_collections">Colecții</string>
+    <string name="stores_itch_updates_found">Actualizări disponibile: %1$d</string>
+    <string name="stores_itch_update_replaced">Dezvoltatorul a înlocuit această versiune cu %1$s. Actualizezi la ea?</string>
     <string name="xbox_filter_cloud">Cloud</string>
     <string name="stores_xbox_cloud_settings">Setări cloud</string>
     <string name="apps_search_hint">Caută aplicații</string>

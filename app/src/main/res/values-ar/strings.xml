@@ -3221,6 +3221,8 @@
     <string name="library_in">في المكتبة</string>
     <string name="xbox_filter_show">عرض</string>
     <string name="itch_collections">المجموعات</string>
+    <string name="stores_itch_updates_found">التحديثات المتاحة: %1$d</string>
+    <string name="stores_itch_update_replaced">استبدل المطوّر هذا الإصدار بـ %1$s. هل تريد التحديث إليه؟</string>
     <string name="xbox_filter_cloud">سحابية</string>
     <string name="stores_xbox_cloud_settings">إعدادات السحابة</string>
     <string name="apps_search_hint">البحث في التطبيقات</string>
