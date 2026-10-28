@@ -100,6 +100,7 @@ internal object GogOffline {
         GogFiles.validate(inventory, proposal.folder)
         val executable = sidecar.exe.replace('\\', '/')
         check(files.any { !it.first.getBoolean("directory") && it.first.getString("path").equals(executable, true) } ||
+            proposal.before.verified && proposal.before.files.length() > 0 &&
             proposal.before.files.objects().none { it.getString("path").equals(executable, true) } && GogFiles.inside(proposal.folder, executable).isFile) {
             "The offline installer did not extract the game's executable. No installed files were changed."
         }

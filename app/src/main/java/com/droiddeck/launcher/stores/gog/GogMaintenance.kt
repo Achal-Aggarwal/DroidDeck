@@ -87,7 +87,8 @@ internal object GogMaintenance {
     internal fun offlineInstaller(downloads: JSONObject, language: String): GogOfflineDownload {
         val installers = GogOfflineDownload.parse(downloads, "installers")
         return installers.firstOrNull { it.language.equals(language, true) }
-            ?: installers.firstOrNull { it.language.equals("Neutral", true) || StoreLanguage.depotAccepted(arrayOf(it.language), language) }
+            ?: installers.firstOrNull { !it.language.equals("Neutral", true) && StoreLanguage.depotAccepted(arrayOf(it.language), language) }
+            ?: installers.firstOrNull { it.language.equals("Neutral", true) }
             ?: error("No Windows offline installer is available for the installed language ($language)")
     }
 

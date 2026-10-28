@@ -97,6 +97,9 @@ class GogMaintenanceTest {
           {"id":"en","os":"windows","language":"en","files":[{"downlink":"https://example.invalid/en"}]}]}""")
         assertEquals("en", GogMaintenance.offlineInstaller(downloads, "en-US").id)
         assertThrows(IllegalStateException::class.java) { GogMaintenance.offlineInstaller(downloads, "pl-PL") }
+        downloads.getJSONArray("installers").put(0, JSONObject("""{"id":"neutral","os":"windows","language":"Neutral","files":[{"downlink":"https://example.invalid/neutral"}]}"""))
+        assertEquals("en", GogMaintenance.offlineInstaller(downloads, "en-US").id)
+        assertEquals("neutral", GogMaintenance.offlineInstaller(downloads, "pl-PL").id)
     }
 
     @Test fun incompleteOfflineExtractionCannotReplaceOrRemoveInstalledFiles() {
@@ -114,6 +117,15 @@ class GogMaintenanceTest {
         assertEquals("installed game", game.readText())
         assertFalse(File(folder, "goggame-1.ico").exists())
         assertEquals("depot", GogInstallRecord.read(folder)!!.source)
+        val migrated = old.copy(files = JSONArray())
+        migrated.write(folder)
+        assertThrows(IllegalStateException::class.java) {
+            GogOffline.applyRefresh(GogMaintenance.Proposal(folder, migrated, migrated.copy(source = "offline"), GogOperation.REFRESH, 0, 0), extracted, null, AtomicBoolean(false))
+        }
+        assertEquals("installed game", game.readText())
+        assertFalse(File(folder, "goggame-1.ico").exists())
+        assertEquals("depot", GogInstallRecord.read(folder)!!.source)
+        assertEquals(0, GogInstallRecord.read(folder)!!.files.length())
     }
 
     @Test fun offlineRefreshCombinesRootPayloadAndAppPlaceholdersInBothLayouts() {
